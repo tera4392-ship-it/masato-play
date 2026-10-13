@@ -1,0 +1,23 @@
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1220px;height:1240px;overflow:hidden}
+body{font-family:"Noto Sans CJK JP","Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;color:#fff;
+ background:linear-gradient(160deg,#16275a 0%,#0f1b2b 100%);position:relative}
+/* 一覧で見える帯は y=112〜1128。重要要素はこの内側に置く */
+.safe{position:absolute;left:0;right:0;top:112px;height:1016px;padding:40px 70px}
+.tag{display:inline-block;background:#f2c230;color:#0f1b2b;font-weight:900;font-size:34px;padding:10px 34px;border-radius:40px}
+.num{position:absolute;right:70px;top:40px;font-size:30px;color:#f2c230;font-weight:700;letter-spacing:.1em}
+h1{font-size:76px;font-weight:900;line-height:1.15;margin:26px 0 8px}
+h1 em{font-style:normal;color:#f2c230}
+.sub{font-size:36px;color:#dfe6f5;font-weight:500}
+.frame{position:absolute;left:70px;right:70px;top:300px;height:560px;border:6px solid #f2c230;border-radius:18px;
+ background:#0b1422;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.frame .bar{height:44px;background:#f2c230;display:flex;align-items:center;gap:10px;padding-left:18px}
+.frame .bar i{width:14px;height:14px;border-radius:50%;background:#0f1b2b;opacity:.6}
+.frame img{width:100%;height:calc(100% - 44px);object-fit:cover;object-position:top;display:block}
+.frame .ph{height:calc(100% - 44px);display:flex;align-items:center;justify-content:center;color:#7d8bb0;font-size:34px}
+.pills{position:absolute;left:70px;right:70px;top:890px;display:flex;gap:16px;flex-wrap:wrap}
+.pill{border:3px solid #f2c230;color:#fff;border-radius:40px;padding:10px 26px;font-size:30px;font-weight:700}
+.pill b{color:#f2c230}
+.foot{position:absolute;left:0;right:0;bottom:0;height:112px;background:#f2c230;color:#0f1b2b;
+ display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900}
+.foot span{margin:0 24px}
