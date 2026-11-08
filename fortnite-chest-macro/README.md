@@ -26,3 +26,18 @@
 ## 注意
 - フォートナイトは Easy Anti-Cheat を使っています。**入力を自動化するツールは規約上グレーで、アカウント制限の可能性がゼロではありません。** 撮影は**クリエイティブ / プライベートマッチ、サブアカウント**で行うのが安全です。
 - 他人が参加するマッチでの長時間の放置使用は避けてください。
+
+---
+## 探索版 (歩き回る + ドア + 宝箱の音で壁破壊): `explorer_macro.py`
+バトロワ風クリエマップ用。Python 版です。
+
+```
+pip install pydirectinput pynput numpy soundcard
+python explorer_macro.py --calibrate   # 先に音量を確認
+python explorer_macro.py               # F8 開始/停止, F9 終了
+```
+- 歩き回り → 時々 E でドアを開ける
+- ゲーム音を監視し、急な音(宝箱の音)を検知したら、左右の音量差で音の方向へ振り向き → 近づく → ツルハシで壁を壊す → E長押しで宝箱を開ける → 探索に戻る
+- 調整は `explorer_macro.py` 上部: `SOUND_RATIO` / `SOUND_MIN_LEVEL` (音の感度), `TURN_PX_AT_FULL_PAN` (振り向き量。ゲーム内の感度で変わる), `BREAK_WALL_S` など
+- ゲームの音量は一定にし、BGMは下げると検知が安定します
+- 管理者として実行。ゲームはウィンドウ/ボーダーレスで、前面にして F8
