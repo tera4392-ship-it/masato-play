@@ -41,3 +41,14 @@ python explorer_macro.py               # F8 開始/停止, F9 終了
 - 調整は `explorer_macro.py` 上部: `SOUND_RATIO` / `SOUND_MIN_LEVEL` (音の感度), `TURN_PX_AT_FULL_PAN` (振り向き量。ゲーム内の感度で変わる), `BREAK_WALL_S` など
 - ゲームの音量は一定にし、BGMは下げると検知が安定します
 - 管理者として実行。ゲームはウィンドウ/ボーダーレスで、前面にして F8
+
+---
+## ルート台本版: `route_macro.py` + `route.txt`
+ルートを短いカットごとのテキスト台本に書いて再生します。ズレたらそのカットだけ撮り直せます。
+```
+pip install pydirectinput pynput
+python route_macro.py --calibrate-turn   # 最初に1回: 360度ぴったり回るよう PX_PER_360 を調整
+python route_macro.py route.txt          # F8で開始(3秒後に動き出す) / F9で終了
+python route_macro.py route.txt --dry-run   # 文法チェックのみ
+```
+命令: `walk` `run` `back` `strafe l/r` `turn` `look` `jump` `door` `chest` `break` `wait` `repeat N … end` (詳細は `route_macro.py` 冒頭)

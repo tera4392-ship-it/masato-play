@@ -1,0 +1,29 @@
+# サンプル台本 (数値は仮です。実際のマップで測って書き換えてください)
+# 1カット = 1ファイルにして、route_cut1.txt, route_cut2.txt ... と分けるのがおすすめ
+
+# --- 建物に近づく ---
+run 4
+turn 90
+walk 2
+
+# --- ドアを開けて中へ ---
+door
+walk 1.5
+
+# --- 宝箱 ---
+turn -45
+walk 1
+chest
+
+# --- 壁を壊して次の部屋へ ---
+turn 135
+break 2.5
+walk 1.5
+chest
+
+# --- 外に出て次へ ---
+turn 180
+repeat 2
+  walk 2
+  turn 20
+end
