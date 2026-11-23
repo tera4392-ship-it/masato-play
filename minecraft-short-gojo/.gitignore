@@ -1,0 +1,6 @@
+node_modules/
+out/chunks/
+out/*_silent.mp4
+out/video_*.mp4
+out/list.txt
+out/se.wav
