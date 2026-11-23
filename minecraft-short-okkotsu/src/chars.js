@@ -94,7 +94,7 @@ export function makeChar(paint, scene) {
   const C = { mats: [] };
   const root = new THREE.Group(); C.root = root;
   const hips = new THREE.Group(); hips.position.y = 12 * PX; root.add(hips); C.hips = hips;
-  const mk = (...a) => part(...a, C.mats);
+  const mk = (a, b, c, d, pt = false) => part(a, b, c, d, pt, C.mats);
   const body = mk(8, 12, 4, paint.body); body.position.y = 6 * PX; hips.add(body); C.body = body;
   C.torso = new THREE.Group(); hips.add(C.torso); // 腰を中心に傾く
   hips.remove(body); body.position.y = 6 * PX; C.torso.add(body);
@@ -193,47 +193,90 @@ export function makeKashimo(scene) {
   for (const sx of [-1, 1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(2 * PX, 3 * PX, 2 * PX), hm); m.position.set(sx * 2.6 * PX, 4 * PX + 8 * PX / 2 + 1.5 * PX, -0.5 * PX); m.rotation.z = -sx * 0.3; C.head.add(m); }
   return C;
 }
-// ================= リカ(巨大な式神。長い腕と大きな手) =================
+// ================= リカ(参考画像に合わせた造形) =================
+// 骨ばった頭+赤い口と長い牙 / 後頭部に放射状に伸びる白い腕の冠 / 肋骨の胴 / 長く太い腕と爪の大きな手 / 脚はなく黒い尾
+const LAV = '#dcd8ea', LAV2 = '#b8b3cc', GRY = '#8f8aa6', BLK = '#14141a';
+const lmCache = {};
+const lm = hex => (lmCache[hex] ??= new THREE.MeshLambertMaterial({ color: hex, emissive: new THREE.Color(hex).multiplyScalar(hex === '#14141a' || hex === '#1c1c24' ? 0.05 : 0.6) }));
 export function makeRika(scene) {
   const R = { mats: [] }; const root = new THREE.Group(); R.root = root;
-  const WH = '#ecebf0', GY = '#b8b6c4', BK = '#101018';
-  const body = (f, x, w, h) => { noise(x, w, h, WH, 0.06, 41); dot(x, GY, 1, 3, w - 2, 1); dot(x, GY, 1, 6, w - 2, 1); dot(x, GY, 1, 9, w - 2, 1); dot(x, GY, 4, 0, 2, h); };
-  const headP = (f, x, w, h) => {
-    noise(x, w, h, WH, 0.06, 42);
-    if (f === 'top') noise(x, w, h, BK, 0.05, 43);
-    else if (f === 'front') {
-      dot(x, BK, 0, 0, w, 2); dot(x, BK, 0, 2, 1, 3); dot(x, BK, 7, 2, 1, 3);
-      dot(x, BK, 1, 3, 2, 2); dot(x, BK, 5, 3, 2, 2); dot(x, '#ffffff', 2, 4); dot(x, '#ffffff', 5, 4);
-      dot(x, '#7a0a16', 1, 5, 6, 3); for (let i = 1; i < 7; i++) { dot(x, '#ffffff', i, 5); if (i % 2) dot(x, '#ffffff', i, 7); }
-    } else if (f === 'back') noise(x, w, h, BK, 0.05, 44);
-    else dot(x, BK, 0, 0, w, 2);
+  const solid = (w, h, d, col, pivotTop = false) => { const g = new THREE.BoxGeometry(w * PX, h * PX, d * PX); if (pivotTop) g.translate(0, -h * PX / 2, 0); return new THREE.Mesh(g, lm(col)); };
+  const mk = (a, b, c, d, pt = false) => part(a, b, c, d, pt, R.mats);
+  // --- 黒い尾(脚の代わり) ---
+  const tail = new THREE.Group(); tail.position.y = 26 * PX; root.add(tail); R.tail = [];
+  for (let i = 0; i < 9; i++) {
+    const g = new THREE.Group(); const seg = solid(6 - 0.55 * i, 3.4, 4.4 - 0.4 * i, i % 2 ? '#1c1c24' : BLK); seg.position.y = -1.7 * PX; g.add(seg);
+    g.position.set(0, -i * 3 * PX, -(i * i) * 0.18 * PX); tail.add(g); R.tail.push(g);
+  }
+  // --- 腰・胴(肋骨) ---
+  const waist = solid(6, 6, 4, GRY); waist.position.y = 29 * PX; root.add(waist);
+  const ribs = (f, x, w, h) => {
+    x.fillStyle = LAV; x.fillRect(0, 0, w, h);
+    if (f === 'front') { for (let r = 1; r < h; r += 2) { x.fillStyle = LAV2; x.fillRect(1, r, w - 2, 1); } x.fillStyle = GRY; x.fillRect(Math.floor(w / 2) - 1, 0, 2, h); x.fillStyle = BLK; x.fillRect(0, 0, w, 1); }
+    else if (f === 'back') { x.fillStyle = LAV2; for (let r = 1; r < h; r += 3) x.fillRect(2, r, w - 4, 1); x.fillStyle = GRY; x.fillRect(Math.floor(w / 2) - 1, 0, 2, h); }
+    else { x.fillStyle = LAV2; x.fillRect(0, h - 3, w, 3); }
   };
-  const arm = (f, x, w, h) => { noise(x, w, h, WH, 0.06, 45); dot(x, GY, 0, 6, w, 1); dot(x, GY, 0, 13, w, 1); };
-  const mk = (...a) => part(...a, R.mats);
-  const skirt = mk(10, 8, 6, body); skirt.position.y = 4 * PX; root.add(skirt);
-  const torso = mk(10, 12, 6, body); torso.position.y = 14 * PX; root.add(torso); R.torso = torso;
-  const hp = new THREE.Group(); hp.position.y = 20 * PX; root.add(hp); R.headPivot = hp;
-  const head = mk(8, 8, 8, headP); head.position.y = 4 * PX; hp.add(head); R.head = head;
-  const mkArm = (sx) => {
-    const g = new THREE.Group(); g.position.set(sx * 7 * PX, 19 * PX, 0); root.add(g);
-    const a = mk(4, 20, 4, arm, true); g.add(a);
-    const hand = new THREE.Group(); hand.position.y = -20 * PX; g.add(hand);
-    { const palm = mk(6, 5, 2, arm); palm.position.set(0, -2.5 * PX, 0); hand.add(palm); }
-    for (let i = 0; i < 4; i++) { const fg = mk(1.2, 6, 1.2, arm); fg.position.set((-2.2 + i * 1.5) * PX, -7.5 * PX, 0); hand.add(fg); }
-    return g;
+  const torso = mk(10, 12, 5, ribs); torso.position.y = 38 * PX; root.add(torso); R.torso = torso;
+  // --- 頭: 上顎+可動の下顎 ---
+  const hp = new THREE.Group(); hp.position.y = 46 * PX; root.add(hp); R.headPivot = hp;
+  const upper = mk(8, 4, 8, (f, x, w, h) => {
+    x.fillStyle = LAV; x.fillRect(0, 0, w, h);
+    if (f === 'front') { x.fillStyle = BLK; x.fillRect(1, 1, 1, 1); x.fillRect(6, 1, 1, 1); x.fillRect(0, 0, w, 1); // 目と眉
+      x.fillStyle = '#8a0a1c'; x.fillRect(0, 2, w, 2); for (let i = 0; i < 8; i++) { x.fillStyle = '#fff'; x.fillRect(i, 2, 1, i % 2 ? 2 : 1); } }
+    else if (f === 'bottom') { x.fillStyle = '#8a0a1c'; x.fillRect(0, 0, w, h); for (let i = 0; i < 8; i += 2) { x.fillStyle = '#fff'; x.fillRect(i, 0, 1, 2); } }
+    else if (f === 'top') { x.fillStyle = LAV2; x.fillRect(3, 0, 2, h); }
+  });
+  upper.position.set(0, 2 * PX, 0); hp.add(upper); R.head = upper;
+  const jaw = new THREE.Group(); jaw.position.set(0, 0, -4 * PX); hp.add(jaw); R.jaw = jaw;
+  const low = mk(8, 3, 8, (f, x, w, h) => {
+    x.fillStyle = LAV; x.fillRect(0, 0, w, h);
+    if (f === 'top') { x.fillStyle = '#c01428'; x.fillRect(0, 0, w, h); x.fillStyle = '#7a0a16'; x.fillRect(2, 2, 4, 4); for (let i = 1; i < 8; i += 2) { x.fillStyle = '#fff'; x.fillRect(i, h - 1, 1, 1); x.fillRect(i, 0, 1, 1); } }
+    else if (f === 'front') { x.fillStyle = '#8a0a1c'; x.fillRect(0, 0, w, 1); for (let i = 0; i < 8; i++) { x.fillStyle = '#fff'; x.fillRect(i, 0, 1, i % 2 ? 1 : 2); } }
+  });
+  low.position.set(0, -1.5 * PX, 4 * PX); jaw.add(low);
+  for (const fx of [-3.2, -1.1, 1.1, 3.2]) { const fu = solid(1.0, 3.4, 1.0, '#fffdf5'); fu.position.set(fx * PX, -1.7 * PX + 0.2 * PX, 8.1 * PX); hp.add(fu); }
+  for (const fx of [-2.2, 0, 2.2]) { const fl = solid(1.0, 3.0, 1.0, '#fffdf5'); fl.position.set(fx * PX, 1.2 * PX, 7.6 * PX); jaw.add(fl); }
+  // --- 後頭部に放射状に伸びる白い腕の冠 ---
+  const mane = new THREE.Group(); mane.position.set(0, 44 * PX, -2.5 * PX); mane.rotation.x = -0.3; root.add(mane); R.mane = mane;
+  for (let i = 0; i < 11; i++) {
+    const th = ((i - 5) / 5) * 1.35; let phi = th; let cx = 0, cy = 0; const sgn = Math.sign(th) || 1;
+    for (let j = 0; j < 5; j++) { const L = 5.2, wd = 4.4 - 0.6 * j; const dx = Math.sin(phi), dy = Math.cos(phi);
+      const seg = solid(wd, L, wd * 0.8, j % 2 ? LAV2 : LAV); seg.position.set((cx + dx * L / 2) * PX, (cy + dy * L / 2) * PX, -(Math.abs(th)) * 0.8 * PX); seg.rotation.z = -phi; mane.add(seg);
+      cx += dx * L; cy += dy * L; phi += sgn * 0.2; if (j === 4) { const tip = solid(2.4, 2.4, 2.4, BLK); tip.position.set(cx * PX, cy * PX, -(Math.abs(th)) * 0.8 * PX); mane.add(tip); } }
+  }
+  // --- 腕(長く太い) ---
+  const mkArm = sx => {
+    const sh = new THREE.Group(); sh.position.set(sx * 8 * PX, 42 * PX, 0); root.add(sh);
+    const pad = solid(7, 4, 7, LAV2); pad.position.y = 1.5 * PX; sh.add(pad);
+    const up = solid(5, 14, 5, LAV, true); sh.add(up); for (const yy of [-4, -9]) { const b = solid(5.3, 0.8, 5.3, LAV2); b.position.y = yy * PX; sh.add(b); }
+    const el = new THREE.Group(); el.position.y = -14 * PX; sh.add(el);
+    const fo = solid(4.6, 14, 4.6, LAV, true); el.add(fo);
+    const hand = new THREE.Group(); hand.position.y = -14 * PX; el.add(hand);
+    const palm = solid(6.4, 5, 2.6, LAV2); palm.position.y = -2.5 * PX; hand.add(palm);
+    for (let k = 0; k < 5; k++) { const fg = new THREE.Group(); fg.position.set((-2.5 + k * 1.25) * PX, -5 * PX, 0); fg.rotation.x = -0.25 - (k === 0 || k === 4 ? 0.2 : 0); hand.add(fg);
+      const f1 = solid(1.1, 7, 1.1, LAV, true); fg.add(f1); const f2 = solid(0.9, 3, 0.9, BLK, true); f2.position.y = -7 * PX; fg.add(f2); }
+    return { sh, el };
   };
-  R.armL = mkArm(1); R.armR = mkArm(-1);
-  // 完全顕現: 光輪と鎖
+  const aL = mkArm(1), aR = mkArm(-1); R.armL = aL.sh; R.elL = aL.el; R.armR = aR.sh; R.elR = aR.el;
+  // --- 完全顕現: 光輪と鎖 ---
   const full = new THREE.Group(); full.visible = false; root.add(full); R.full = full;
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.06, 6, 24), new THREE.MeshBasicMaterial({ color: 0xffb0d8, toneMapped: false })); halo.position.set(0, 24 * PX, -4 * PX); full.add(halo); R.halo = halo;
-  const chm = new THREE.MeshLambertMaterial({ color: 0x3a3a44 });
-  for (let i = 0; i < 14; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), chm); c.position.set(Math.sin(i * 0.9) * 0.5 + (i % 2 ? 0.7 : -0.7), 0.9 - i * 0.18, -0.4 + Math.cos(i) * 0.1); full.add(c); }
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.06, 6, 28), new THREE.MeshBasicMaterial({ color: 0xffb0d8, toneMapped: false })); halo.position.set(0, 50 * PX, -7 * PX); full.add(halo); R.halo = halo;
+  const chm = lm(0x3a3a44);
+  for (let i = 0; i < 16; i++) { const c = new THREE.Mesh(BOXG, chm); c.scale.setScalar(0.14); c.position.set(Math.sin(i * 0.9) * 0.45 + (i % 2 ? 0.75 : -0.75), 2.0 - i * 0.17, -0.3 + Math.cos(i) * 0.1); full.add(c); }
+  root.traverse(o => { if (o.isMesh && Array.isArray(o.material)) o.material = o.material.map(mm => new THREE.MeshBasicMaterial({ map: mm.map })); }); hp.scale.setScalar(1.3);
   scene.add(root); return R;
 }
+const BOXG = new THREE.BoxGeometry(1, 1, 1);
 export function setRika(R, s) {
   const d = (k, v) => (s[k] ?? v);
-  R.root.position.set(d('x', 0), d('y', 0), d('z', 0)); R.root.rotation.set(0, d('yaw', 0), 0); R.root.scale.setScalar(d('sc', 2.4));
-  R.torso.parent.rotation.x = 0; R.headPivot.rotation.set(d('headP', 0), 0, 0);
-  R.armR.rotation.set(-d('Rf', 0.1), 0, -d('Rab', 0.35)); R.armL.rotation.set(-d('Lf', 0.1), 0, d('Lab', 0.35));
-  R.root.rotation.x = d('lean', 0); R.full.visible = !!d('full', false); R.root.visible = d('vis', true);
+  R.root.position.set(d('x', 0), d('y', 0), d('z', 0)); R.root.rotation.set(d('lean', 0), d('yaw', 0), 0); R.root.scale.setScalar(d('sc', 1.6));
+  R.headPivot.rotation.set(d('headP', 0), 0, 0);
+  const Rf = d('Rf', 0.1), Lf = d('Lf', 0.1);
+  R.armR.rotation.set(-Rf, 0, -d('Rab', 0.35)); R.armL.rotation.set(-Lf, 0, d('Lab', 0.35));
+  R.elR.rotation.x = -(0.15 + 0.5 * (1 - clamp01(Rf / 1.5))); R.elL.rotation.x = -(0.15 + 0.5 * (1 - clamp01(Lf / 1.5)));
+  R.jaw.rotation.x = d('jaw', 0.3);
+  const tw = d('tw', 0); R.tail.forEach((g, i) => { g.rotation.y = Math.sin(tw * 2 + i * 0.5) * 0.12 * (i / 4); });
+  R.mane.children.forEach((m, i) => { m.position.x += 0; }); R.mane.rotation.z = Math.sin(tw * 1.2) * 0.03;
+  R.full.visible = !!d('full', false); R.root.visible = d('vis', true);
 }
+const clamp01 = x => Math.min(1, Math.max(0, x));

@@ -18,7 +18,7 @@ const srv = http.createServer((req, res) => {
   const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
   page.on('pageerror', err => console.error('PAGEERROR', err.message));
   page.on('console', m => { if (m.type() === 'error') console.error('CONSOLE', m.text()); });
-  await page.goto(`http://127.0.0.1:${port}/index.html?render=1&s=${SC}`);
+  await page.goto(`http://127.0.0.1:${port}/index.html?render=1&s=${SC}${process.env.EXTRA ? "&" + process.env.EXTRA : ""}`);
   await page.waitForFunction('window.READY === true', null, { timeout: 60000 });
   await page.evaluate(() => document.fonts.load('900 190px "IPAGothic"'));
   const grab = async t => { await page.evaluate(t => window.renderAt(t), t); return Buffer.from((await page.evaluate(() => window.frameDataURL())).split(',')[1], 'base64'); };

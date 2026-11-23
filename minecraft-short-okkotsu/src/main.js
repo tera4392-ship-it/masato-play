@@ -200,7 +200,8 @@ const KK = compile([
 ]);
 const RK = {
   vis: t => t >= T.rikaOn && t < 50.4,
-  sc: t => kf(t, [[10.6, 0.1], [11.8, 2.4], [33.5, 2.4], [35.2, 3.4], [49.0, 3.4], [50.4, 0.05]]),
+  sc: t => kf(t, [[10.6, 0.1], [11.8, 1.6], [33.5, 1.6], [35.2, 2.3], [49.0, 2.3], [50.4, 0.05]]),
+  jaw: t => kf(t, [[0, .55], [12.6, .9], [13, .5], [15.3, .55], [15.5, 1.1], [16.5, .55], [34, .55], [35, 1.2], [36, .7], [38.3, .7], [38.8, 1.2], [41.7, 1.2], [42, .5], [49, .5]]),
   z: t => kf(t, [[10.6, 11.8], [12.0, 11.8], [12.7, 9.9], [14.5, 11.8], [33.5, 11.8], [35.2, 12.8], [49, 12.8]]),
   arms: t => kf(t, [[10.6, [.1, .1, .35, .35, 0, 0]], [12.2, [-.6, .1, .2, .35, -.2, -.2]], [12.8, [1.5, .1, .05, .35, .1, .3]], [13.4, [.2, .1, .3, .35, 0, 0]], [13.6, [1.5, .1, .05, .35, .1, .3]], [14.5, [.2, .2, .4, .4, 0, 0]],
     [15.2, [.2, .2, .4, .4, 0, 0]], [15.4, [.6, .6, .7, .7, -.5, -.2]], [16.6, [.1, .1, .35, .35, 0, 0]], [34.6, [.1, .1, .35, .35, 0, 0]], [35.4, [1.0, 1.0, 1.0, 1.0, .3, .1]], [38.5, [.6, .6, .6, .6, -.5, -.1]],
@@ -329,7 +330,7 @@ function updateScene(t) {
   setTint(O, 0x55ff88, t > T.heal && t < T.heal + 2.4 ? 0.25 * Math.sin((t - T.heal) / 2.4 * PI) : 0);
   // リカ
   const rv = RK.vis(t); const a = RK.arms(t);
-  setRika(R, { x: 0, y: t >= T.full ? 0.1 : 0, z: RK.z(t), yaw: PI, sc: RK.sc(t), Rf: a[0], Lf: a[1], Rab: a[2], Lab: a[3], headP: a[4], lean: a[5] * 0.5, full: t >= T.full, vis: rv });
+  setRika(R, { x: 0, y: t >= T.full ? 0.1 : 0, z: RK.z(t), yaw: PI, sc: RK.sc(t), Rf: a[0], Lf: a[1], Rab: a[2], Lab: a[3], headP: a[4], lean: a[5] * 0.5, jaw: RK.jaw(t), tw: t, full: t >= T.full, vis: rv });
   R.halo.rotation.z = t * 0.5;
   // 分身
   const show = t >= 22.0 && t < 24.7; const p0 = KC.clone();
@@ -368,7 +369,7 @@ function updateFx(t) {
   ringAt(T.kPunch, [0, 0.3, -0.5], 7, 0xffe070); ringAt(T.pierce, [0, 0.3, 5.4], 7, 0xffd060); ringAt(T.oFall, [0, 0.3, 5.0], 5, 0xd8d0c0, 0.5);
   for (const tt of [T.rikaOn, T.rikaHit, T.rikaHit2, T.full, T.kPunch]) { const d = t - tt; if (d >= 0 && d < 0.4) { shakeAmp = Math.max(shakeAmp, 0.55 * (1 - d / 0.4)); flashW = Math.max(flashW, 0.08 * (1 - d / 0.4)); } }
   // 落雷(鹿紫雲→リカ)
-  const rikaHead = worldOf(R.head, [0, 0, 0]);
+  const rikaHead = worldOf(R.head, [0, 0.1, 0]);
   [[T.strike, rikaHead], [T.strike + 0.2, V3(0, 33, -37)], [T.oShock, bodyOf(O)], [36.2, V3(0, 1.3, -3)], [36.35, V3(3, 1, 4)]].forEach(([ts, target], i) => {
     const d = t - ts; if (d < 0 || d > 0.4) return; const life = 1 - d / 0.4; const top = V3(target.x + (rnd(i + 3) - .5) * 4, 42, target.z + (rnd(i + 5) - .5) * 4);
     for (let b = 0; b < 2; b++) bolts.thunder(top, target, 0.07 * (0.5 + life), frame * 3 + b + i * 17, 4);
@@ -430,6 +431,7 @@ const UP = V3(0, 1, 0), UPZ = V3(0, 0, -1);
 const head = C => worldOf(C.head, [0, 0, 0]);
 function orbit(c, r, h, a0, a1, t, t0, t1) { const a = lerp(a0, a1, clamp((t - t0) / (t1 - t0))); return V3(c.x + Math.sin(a) * r, h, c.z + Math.cos(a) * r); }
 function shot(t) {
+  if (q.has('cam')) { const c = q.get('cam').split(',').map(Number); camera.up.set(0, 1, 0); camera.position.set(c[0], c[1], c[2]); camera.lookAt(c[3], c[4], c[5]); camera.fov = c[6] || 50; camera.updateProjectionMatrix(); return; }
   let p, l, fov = 50, up = UP.clone(), roll = 0, sh = 0;
   const oh = head(O), kh = head(K), op = O.root.position, kp = K.root.position, rh = head(R);
   if (t < 2.5) { p = V(kf(t, [[0, [8, 32, 34]], [2.5, [3, 2.4, 14]]], easeOut)); l = V3(0, 3, -6); fov = 55; }
