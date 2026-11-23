@@ -449,7 +449,7 @@ function updatePost(t) {
   u.uInv.value = invert; u.uFlash.value = flashW * (invert ? 0 : 1);
   u.uFade.value = kf(t, [[0, 1], [0.35, 0], [3.5, 0], [4.0, 1], [4.01, 0], [8.8, 0], [9.0, 0], [85.7, 0], [86.2, 1], [86.4, 1], [86.9, 0], [89.5, 0], [90, 1]], lin);
   if (t < 4) u.uFade.value = kf(t, [[0, 1], [0.35, 0], [3.4, 0], [4.0, 1]], lin);
-  if (t >= 4 && t < 4.6) u.uFade.value = kf(t, [[4, 1], [4.6, 0]], lin);
+  if (t >= 4 && t < 4.6) u.uFade.value = 0;
   if (t >= 86) u.uFade.value = kf(t, [[86, 1], [86.5, 0], [89.3, 0], [90, 1]], lin);
   if (bfD >= 0 && bfD < 1) { const sp = bfPos.clone().project(camera); u.uC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uR.value = bfD * 1.4; u.uStr.value = 1.2 * (1 - clamp(bfD / 0.8)); u.uCA.value = 0.0006 + 0.012 * (1 - clamp(bfD / 0.6)); }
   else { u.uStr.value = 0; u.uCA.value = 0.0006; }
@@ -471,7 +471,7 @@ function drawCaptions(c, t) {
     c.font = `900 ${size}px ${FONT}`; const widest = Math.max(...lines.map(l => c.measureText(l).width));
     const maxW = W * 0.92; if (widest > maxW) size *= maxW / widest;
     const pop = age < 0.22 ? lerp(1.4, 1, easeOut(age / 0.22)) : 1; const alpha = Math.min(1, age / 0.08) * Math.min(1, rem / 0.15);
-    const cy = (kind === 'title' || kind === 'end') ? H * 0.5 : H * 0.68, lh = size * 1.25, y0 = cy - ((lines.length - 1) * lh) / 2;
+    const cy = (kind === 'title' || kind === 'end') ? H * 0.5 : H * 0.215, lh = size * 1.25, y0 = cy - ((lines.length - 1) * lh) / 2;
     c.save(); c.globalAlpha = alpha; c.translate(W / 2, cy); c.scale(pop, pop); c.translate(-W / 2, -cy);
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `900 ${size}px ${FONT}`;
     lines.forEach((ln, i) => {
@@ -485,7 +485,7 @@ function drawCaptions(c, t) {
   }
   for (const [tc, n] of COUNTS) { // 黒閃カウント
     const age = t - tc; if (age < 0 || age > 0.9) continue; const pop = age < 0.15 ? lerp(1.8, 1, easeOut(age / 0.15)) : 1; const a = 1 - clamp((age - 0.6) / 0.3);
-    c.save(); c.globalAlpha = a; c.translate(W / 2, H * 0.36); c.scale(pop, pop); c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `900 ${420 * SC}px ${FONT}`;
+    c.save(); c.globalAlpha = a; c.translate(W / 2, H * 0.42); c.scale(pop, pop); c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `900 ${420 * SC}px ${FONT}`;
     c.shadowColor = '#ff1030'; c.shadowBlur = 60 * SC; strokeText(c, n, 0, 0, '#ff2a40', '#fff', 18 * SC, 14 * SC); c.restore();
   }
 }
@@ -505,8 +505,8 @@ function drawHud(c, t) {
   const hp = kf(t, HP.map(h => [h[0], [h[1], h[2]]]), smooth);
   const px = 5.6 * SC, x0 = 215 * SC;
   c.textAlign = 'left'; c.textBaseline = 'middle'; c.font = `900 ${42 * SC}px ${FONT}`;
-  strokeText(c, '宿儺', 40 * SC, 262 * SC, '#ffd0d0', '#000', 8 * SC, 0); drawHearts(c, x0, 245 * SC, hp[0], px);
-  strokeText(c, '虎杖', 40 * SC, 328 * SC, '#ffd0e4', '#000', 8 * SC, 0); drawHearts(c, x0, 311 * SC, hp[1], px);
+  strokeText(c, '宿儺', 40 * SC, 1432 * SC, '#ffd0d0', '#000', 8 * SC, 0); drawHearts(c, x0, 1415 * SC, hp[0], px);
+  strokeText(c, '虎杖', 40 * SC, 1498 * SC, '#ffd0e4', '#000', 8 * SC, 0); drawHearts(c, x0, 1481 * SC, hp[1], px);
 }
 function drawBars(c, t) { // 黒閃の一瞬だけ黒帯(漫画的演出)
   for (const [tb] of BFE) { const d = t - tb; if (d >= 0 && d < 0.09) { c.fillStyle = '#000'; c.globalAlpha = 0.0; c.fillRect(0, 0, 0, 0); c.globalAlpha = 1; } }
