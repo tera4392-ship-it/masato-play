@@ -204,14 +204,16 @@ burst(T.kneel, [0, 0.2, 4.2], 40, { speed: 4, up: 2, life: 1.4, size: 0.3, g: 9,
 for (let k = 0; k < 14; k++) burst(T.interior + k * 0.65, [(rnd(k) - 0.5) * 18, 0.4, (rnd(k * 2) - 0.5) * 22], 8, { speed: 0.6, up: 4, life: 2.5, size: 0.3, g: -0.3, cols: [0x000000, 0x1a0010], seed: 70 + k, ground: false, spread: 6 });
 
 
-// 領域の殻(外から見る衝突) / 技の球
-function shell(col, wire) {
+// 領域の殻(外から見る): 黒い外郭。縁だけがうっすら光り、表面に弱い模様が流れる
+function shell(rim, pat, kind) {
   const g = new THREE.Group();
-  g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(1, 3), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, toneMapped: false })));
-  g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(1.005, 2), new THREE.MeshBasicMaterial({ color: wire, wireframe: true, transparent: true, opacity: 0.6, toneMapped: false })));
-  g.visible = false; scene.add(g); return g;
+  const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+    uniforms: { a: { value: 1.0 }, rim: { value: new THREE.Color(rim) }, pat: { value: new THREE.Color(pat) }, time: { value: 0 }, kind: { value: kind } },
+    vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader: 'uniform float a,time,kind; uniform vec3 rim,pat; varying vec3 vN; varying vec3 vP; float h(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453);} void main(){ float f=pow(1.0-abs(vN.z),5.0); vec3 c=vec3(0.0,0.0,0.002)+rim*f*0.55; if(kind<0.5){ float s=step(0.992,h(floor(vP*22.0))); c+=pat*s*(0.5+0.5*sin(time*4.0+h(floor(vP*22.0))*20.0))*0.8; } else { float v=0.5+0.5*sin(vP.y*14.0+sin(vP.x*9.0+time*2.0)*2.0); c+=pat*pow(v,12.0)*0.14*(0.4+f); } gl_FragColor=vec4(c,a);}' });
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), mat); g.add(m); g.visible = false; scene.add(g); return g;
 }
-const shA = shell(0x101a60, 0xaad0ff), shB = shell(0xff5a20, 0xffd060), shF = shell(0xff2030, 0x000000);
+const shA = shell(0x6aa8ff, 0xbfe0ff, 0), shB = shell(0xff3a30, 0xff5a40, 1), shF = shell(0xff2030, 0xff4a40, 1);
 const ball = (c) => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), bas(c, { transparent: true })); m.visible = false; scene.add(m); return m; };
 const bfBlack = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0, transparent: true, depthWrite: false }));
 const bfRed = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff1030, side: THREE.BackSide, transparent: true, toneMapped: false, depthWrite: false }));
@@ -479,9 +481,9 @@ function updateFx(t, tvid) {
       flashW = Math.max(flashW, d < 0.02 ? 0.6 : 0.12 * (1 - clamp(d / 0.6))); shakeAmp = Math.max(shakeAmp, 1.0 * (1 - clamp(d / 0.9))); if (d < 0.02) invert = 1; fxLight.color.set(0x4aa8ff); fxLight.position.copy(pos); fxLight.intensity = 50 * (1 - clamp(d / 0.8)); } }
   if (t < T.counter || t > T.counter + 1.3) bfRed.material.color.set(0xff1030);
   // 五条の領域展開(一足早い)
-  { const d = hit(T.domG2, 0.9); if (d >= 0) { shA.visible = true; shA.position.set(0, 0, -7.4); shA.scale.setScalar(0.5 + 70 * easeOut(clamp(d / 0.8))); shA.children[0].material.opacity = 0.3 * (1 - d / 0.9); flashW = Math.max(flashW, d < 0.12 ? 0.9 : 0.4 * (1 - d / 0.9)); shakeAmp = Math.max(shakeAmp, 0.7 * (1 - d / 0.9)); if (d < 0.06) invert = 1; } }
+  { const d = hit(T.domG2, 0.9); if (d >= 0) { shA.visible = true; shA.position.set(0, 0, -7.4); shA.scale.setScalar(0.5 + 70 * easeOut(clamp(d / 0.8))); shA.children[0].material.uniforms.a.value = 1.0 - smooth(clamp((d - 0.45) / 0.45)); flashW = Math.max(flashW, d < 0.12 ? 0.9 : 0.4 * (1 - d / 0.9)); shakeAmp = Math.max(shakeAmp, 0.7 * (1 - d / 0.9)); if (d < 0.06) invert = 1; } }
   // 虎杖が遅れて領域展開を試みる→失敗
-  { const d = t - 38.2; if (d >= 0 && d < 0.8) { shF.visible = true; shF.position.set(0, 0, 4.2); const k = d / 0.8; shF.scale.setScalar(Math.max(0.01, 4 * Math.sin(k * PI * 0.5) * (1 - 0.8 * k * k))); shF.children[0].material.opacity = 0.3 * (1 - k); for (let b = 0; b < 8; b++) bolts.bolt(V3(0, 1.3, 4.2), V3(0, 1.3, 4.2).add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(3.4 * (1 - k * 0.6))), { n: 5, jit: .3, w: 0.06, color: b % 2 ? 0xff1030 : 0x000000, seed: frame + b }); } }
+  { const d = t - 38.2; if (d >= 0 && d < 0.8) { shF.visible = true; shF.position.set(0, 0, 4.2); const k = d / 0.8; shF.scale.setScalar(Math.max(0.01, 4 * Math.sin(k * PI * 0.5) * (1 - 0.8 * k * k))); shF.children[0].material.uniforms.a.value = 1.0 - smooth(clamp((k - 0.5) / 0.5)); for (let b = 0; b < 8; b++) bolts.bolt(V3(0, 1.3, 4.2), V3(0, 1.3, 4.2).add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(3.4 * (1 - k * 0.6))), { n: 5, jit: .3, w: 0.06, color: b % 2 ? 0xff1030 : 0x000000, seed: frame + b }); } }
   { const d = hit(45.5, 0.5); if (d >= 0) { flashW = Math.max(flashW, 0.7 * (1 - d / 0.5)); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - d / 0.5)); } }
   // 領域G内の脈動
   if (t > T.domG2 + 0.4 && t < 45.5) { const p = Math.sin(t * 2.4); flashW = Math.max(flashW, 0.04 * Math.max(0, p)); }
