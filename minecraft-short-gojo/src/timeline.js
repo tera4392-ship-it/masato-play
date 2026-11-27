@@ -4,7 +4,7 @@ export const END = 55.2; // τの終わり
 
 // [τ開始, τ終了, 進む速さ(1=等速, <1=スロー)]  ヒットストップは極小区間+低速で表現
 export const T = {
-  jump: 6.0, launch: 10.6, clash: 11.6, land: 14.0, sealG: 14.5, sealY: 15.6, sealGdone: 15.3, sealYdone: 16.4, domG: 17.6, domY: 17.9, cut: 20.5, shatter: 20.8, interior: 21.0,
+  jump: 6.0, launch: 10.6, bldCut: 10.55, clash: 11.6, land: 14.0, sealG: 14.5, sealY: 15.6, sealGdone: 15.3, sealYdone: 16.4, domG: 17.6, domY: 17.9, cut: 20.5, shatter: 20.8, interior: 21.0,
   slash2: 22.0, sever: 22.3, bf: [23.5, 24.2, 24.9, 25.6, 26.3], pierce: 27.2, poison: 27.8, spearOn: 29.8, cancel: 30.1,
   heal: 30.6, rush: 32.8, counter: 33.5, whiteEyes: 35.2, sealG2: 36.2, domG2: 37.5, sealY2: 37.8, failY: 38.8, kneel: 43.0, dawn: 46.0,
 };

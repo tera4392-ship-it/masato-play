@@ -272,8 +272,16 @@ const lensSet = (pos, r, s) => { lensC.copy(pos); lensR = r; lensS = s; };
 const blueO = orbMesh(0x0a1a40, 0x3a8aff, 0x9ad8ff), redO = orbMesh(0x3a0608, 0xff3a30, 0xffa090), purple = orbMesh(0x07000f, 0xa040ff, 0xff70d0), fire = orbMesh(0xff8a30, 0xff5a20, 0xffc070, true);
 const haloB = halo(0x4a8aff), haloR = halo(0xff3a30), haloP = halo(0x9a40ff), haloE = halo(0xffb060);
 const ribB = new Ribbon(24, 0x6ab0ff), ribR = new Ribbon(24, 0xff5040), ribP = new Ribbon(28, 0x9a40ff);
-const ribC = new Ribbon(48, 0xff2a40, true), ribC2 = new Ribbon(48, 0xffffff, true);
+const CRES = [0, 1, 2, 3].map(() => ({ a: new Ribbon(56, 0xff2a40, true), b: new Ribbon(56, 0xffffff, true), c: new Ribbon(56, 0xff8aa0, true) }));
+// 二重の三日月(社長の指定): 両端が鋭く、中央が太い。外側の大弧(赤)+内側の弧(白)+薄い第二の弧
+function crescentFx(i, c, R, span, w, tilt = 0, yaw = 0, col = 0xff2a40) {
+  const cr = CRES[i]; cr.a.mesh.material.uniforms.c.value.set(col);
+  const mk = (RR, dy, dz) => { const pts = []; for (let k = 0; k < 56; k++) { const ph = lerp(-span, span, k / 55); const lx = RR * Math.sin(ph), ly = RR * (Math.cos(ph) - 1) + dy, lz = RR * (1 - Math.cos(ph)) * 0.45 + dz;
+      const x1 = lx * Math.cos(tilt) - ly * Math.sin(tilt), y1 = lx * Math.sin(tilt) + ly * Math.cos(tilt); pts.push(V3(c.x + x1 * Math.cos(yaw) + lz * Math.sin(yaw), c.y + y1, c.z - x1 * Math.sin(yaw) + lz * Math.cos(yaw))); } return pts; };
+  cr.a.set(mk(R, 0, 0), w); cr.b.set(mk(R * 0.97, -R * 0.015, 0.05), w * 0.45); cr.c.set(mk(R * 0.88, -R * 0.09, -0.15), w * 0.55);
+}
 
+for (const sx of [-1, 1]) soft(T.bldCut, [sx * 19, 41, 4], 160, { speed: 8, life: 1.4, size: 0.5, cols: [0xff6a60, 0xffffff, 0xffd0c0], seed: 130 + sx, spread: 14 });
 // 紫・激突まわりの粒子(柔らかい光の粒)
 soft(8.9, [0, 34.6, -5], 220, { inward: 4.2, life: 1.0, size: 0.28, cols: [0x6ab0ff, 0xff5040, 0xc070ff, 0xffffff], seed: 101, tspan: 0.95 });
 soft(9.95, [0, 34.6, -5], 220, { speed: 9, life: 1.1, size: 0.32, cols: [0xc070ff, 0xff70d0, 0xffffff, 0x7a30ff], seed: 102 });
@@ -300,6 +308,12 @@ function updateScene(t, tvid) {
   sky.t.value.set(0x02030c).lerp(new THREE.Color(0x2a4a9a), smooth(ds)); sky.b.value.set(0x3a1f5a).lerp(new THREE.Color(0xffa070), smooth(ds));
   if (env === 'S') { ENV.S.g.visible = true; scene.fog.color.set(0x1a1030).lerp(new THREE.Color(0xc88a80), smooth(ds)); hemi.intensity = 0.95 + 0.4 * smooth(ds); }
   WORLD.anim.skyG.material.uniforms.time.value = t;
+  WORLD.anim.blink.forEach(b => (b.m.visible = Math.sin(tvid * 3 + b.ph) > 0.2));
+  WORLD.anim.cut.forEach(c => { const tt = t - T.bldCut; const sx = c.sx;
+    if (tt < 0) { c.up.position.copy(c.base0); c.up.rotation.set(0, 0, 0); c.up.visible = true; c.edge.visible = false; return; }
+    const e = easeOut(clamp(tt / 0.7)), fall = Math.max(0, tt - 0.7);
+    c.up.position.set(c.base0.x - sx * (7 * e + 9 * fall * fall), c.base0.y + 0.5 * e - 16 * fall * fall, c.base0.z); c.up.rotation.set(0, 0, sx * (0.16 * e + 0.55 * fall));
+    c.up.visible = c.up.position.y > -70; c.edge.visible = tt < 0.7; });
   WORLD.anim.screens.forEach((m, i) => m.material.color.setHSL((t * 0.15 + i * 0.27) % 1, 0.9, 0.42 * (1 - 0.7 * smooth(ds))));
   // 星の流れ(五条の領域)
   if (env === 'G') { const st = WORLD.anim.streaks; const m = new THREE.Matrix4(), s = V3(0.06, 0.06, 9), p = V3(), qq = new THREE.Quaternion();
@@ -364,7 +378,7 @@ function sigils(t, frame) {
 }
 function updateFx(t, tvid) {
   bolts.begin(); flashW = 0; invert = 0; fxLight.intensity = 0; shakeAmp = 0; bfD = -1;
-  shA.visible = shB.visible = shF.visible = false; [purple, blueO, redO, fire, haloB, haloR, haloP, haloE, ribB.mesh, ribR.mesh, ribP.mesh, ribC.mesh, ribC2.mesh].forEach(o => (o.visible = false)); ringI = 0; RINGS.forEach(r => (r.visible = false)); lensS = 0; bfBlack.visible = bfRed.visible = blueFist.visible = false;
+  shA.visible = shB.visible = shF.visible = false; [purple, blueO, redO, fire, haloB, haloR, haloP, haloE, ribB.mesh, ribR.mesh, ribP.mesh, ...CRES.flatMap(c => [c.a.mesh, c.b.mesh, c.c.mesh])].forEach(o => (o.visible = false)); ringI = 0; RINGS.forEach(r => (r.visible = false)); lensS = 0; bfBlack.visible = bfRed.visible = blueFist.visible = false;
   const frame = Math.floor(tvid * 24);
   const hit = (tt, dur = 0.5) => { const d = t - tt; return d >= 0 && d < dur ? d : -1; };
   // 屋上の亀裂・跳躍
@@ -372,8 +386,8 @@ function updateFx(t, tvid) {
   // 虎杖: 巨大な解(溜め→発射)
   if (t >= 7.8 && t < T.clash + 0.1) {
     const g = smooth(clamp((t - 7.8) / 2.8)); const launched = t >= T.launch; const zc = launched ? 5 - (t - T.launch) * 5.4 : 5;
-    const R = lerp(2.5, 14, g), span = lerp(0.35, 1.15, g);
-    { const cc = V3(0, 37 + 3 * g, zc); const pts = []; for (let i = 0; i <= 47; i++) { const ph = lerp(-span, span, i / 47); pts.push(V3(cc.x + R * Math.sin(ph), cc.y + R * (Math.cos(ph) - 1), cc.z + R * (1 - Math.cos(ph)) * 0.45)); } ribC.set(pts, 0.25 + 0.7 * g); ribC2.set(pts, 0.1 + 0.3 * g); }
+    const R = 0, span = 0;
+    crescentFx(0, V3(0, lerp(37, 47, g), zc), lerp(4, 30, Math.pow(g, 0.8)), lerp(0.5, 1.25, g), 0.3 + 3.0 * g, 0.03 * Math.sin(t), 0);
     if (!launched) { const f = handW(Y, 'R'); for (let b = 0; b < 4; b++) bolts.bolt(f, f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).multiplyScalar(2.2)), { n: 3, jit: .15, w: 0.05, color: 0xff2a40, seed: frame * 7 + b }); }
     shakeAmp = Math.max(shakeAmp, 0.08 + 0.1 * g);
   }
@@ -427,8 +441,10 @@ function updateFx(t, tvid) {
     for (const [tt, ok] of [[T.domG, 1], [T.domY, 1]]) { const d = t - tt; if (d >= 0 && d < 0.4) { flashW = Math.max(flashW, 0.5 * (1 - d / 0.4)); shakeAmp = Math.max(shakeAmp, 0.5 * (1 - d / 0.4)); if (d < 0.04) invert = 1; } } }
   // 斬撃(shellを割る / 腕を断つ)
   const slash = (tt, a, b, w, col, dur) => { const d = t - tt; if (d < 0 || d > dur) return; const k = d / dur; const gr = clamp(d / 0.06); const e = a.clone().lerp(b, gr); const ww = w * Math.pow(1 - k, 1.4) * (0.4 + 0.6 * gr); bolts.seg(a, e, ww * 2.6, col); bolts.seg(a, e, ww, 0xffffff); flashW = Math.max(flashW, d < 0.06 ? 0.3 : 0); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - k)); };
-  slash(T.cut, V3(-14, 8, 6), V3(14, 3, -14), 0.8, 0xff2a40, 0.6);
-  slash(T.slash2, V3(0, 1.5, 4), V3(0, 1.5, -14), 0.5, 0xff2a40, 0.6); slash(T.slash2 + 0.05, V3(-6, 6, 3), V3(6, -0.5, -9), 0.35, 0xff2a40, 0.5);
+  const cres = (idx, tt, dur, c0, R, span, w, tilt, yaw, speed, dirz = -1) => { const d = t - tt; if (d < 0 || d > dur) return; const k = d / dur; const grow = clamp(d / 0.07); const ww = w * (0.35 + 0.65 * grow) * Math.pow(1 - k, 1.2);
+    crescentFx(idx, V3(c0.x, c0.y, c0.z + dirz * speed * d), R * (0.7 + 0.3 * grow), span, ww, tilt, yaw); flashW = Math.max(flashW, d < 0.07 ? 0.25 : 0); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - k)); };
+  cres(1, T.cut, 0.7, V3(0, 6, 5), 16, 0.95, 0.9, -0.45, 0, 34);
+  cres(2, T.slash2, 0.6, V3(0, 1.3, 3.2), 8, 0.95, 0.5, 0.22, 0, 26); cres(3, T.slash2 + 0.06, 0.55, V3(0, 1.8, 3.0), 6.5, 0.9, 0.38, -0.4, 0, 26);
   // 黒閃×5
   T.bf.forEach((tb, i) => { const d = t - tb; if (d < 0 || d > 1.1) return; const pos = bodyOf(G, 0.35); const big = [1.0, 1.05, 1.15, 1.3, 1.55][i]; bfD = d; bfPos.copy(pos);
     const r = (0.25 + 1.2 * easeOut(clamp(d / 0.3))) * big, op = 1 - smooth(clamp((d - 0.3) / 0.6)); bfBlack.position.copy(pos); bfBlack.scale.setScalar(r); bfBlack.material.opacity = op * 0.92; bfBlack.visible = true; bfRed.position.copy(pos); bfRed.scale.setScalar(r * 1.1); bfRed.material.opacity = op; bfRed.visible = true;
@@ -485,7 +501,7 @@ function shot(t, tvid) {
   else if (t < 9.4) { p = V(kf(t, [[7.6, [3, 33.8, 16]], [9.4, [2.2, 33.6, 12.5]]], lin)); l = V3(0, 34.8, -4); fov = 52; sh = 0.03; roll = 0.08; }
   else if (t < 9.9) { p = V(kf(t, [[9.4, [-3, 35.6, -15]], [9.9, [-2.6, 35.3, -12]]], lin)); l = V3(0, 34.6, -2); fov = 50; sh = 0.05; roll = -0.08; }
   else if (t < 10.6) { p = V(kf(t, [[9.9, [-4.2, 35.4, -9.5]], [10.6, [-3.2, 35.2, -8.6]]], lin)); l = V3(0, 34.6, -5); fov = 40; sh = 0.06; roll = -0.1; }
-  else if (t < 11.6) { p = V(kf(t, [[10.6, [20, 36.5, 4]], [11.6, [15, 35.5, 4]]], lin)); l = V3(0, 34.5, 0); fov = 46; sh = 0.1; }
+  else if (t < 11.6) { p = V(kf(t, [[10.6, [0, 34, 40]], [11.6, [0, 35, 33]]], lin)); l = V(kf(t, [[10.6, [0, 40, -6]], [11.6, [0, 38, -2]]], lin)); fov = 90; sh = 0.12; }
   else if (t < 12.4) { p = V(kf(t, [[11.6, [17, 36, 6]], [12.4, [14, 35.5, 6]]], lin)); l = V3(0, 34, 0); fov = 50; sh = 0.15; roll = 0.1; }
   else if (t < 13.9) { p = V(kf(t, [[12.4, [10, 30, 4]], [13.9, [7, 4, 5]]], lin)); l = V(kf(t, [[12.4, [0, 34, 0]], [13.9, [0, 3, -1]]], lin)); fov = 58; sh = 0.1; roll = -0.1; }
   else if (t < 14.5) { p = V3(9, 1.6, 8); l = V3(0, 1.3, -1); fov = 56; sh = 0.2 * (14.5 - t); }
