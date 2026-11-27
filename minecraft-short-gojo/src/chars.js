@@ -314,20 +314,16 @@ const gojoPaint = {
 };
 export function makeGojo(scene) {
   const C = makeChar(gojoPaint, scene);
-  // 髪: 頭を包むふんわりした白い層(マイクラのスキンの外側レイヤー)+その上の段+前髪+後ろ髪+上の小さな房
-  const HP = ['#d8cfe8', '#e6def2', '#f0eaf8', '#f8f4fc', '#ffffff', '#f4e4f2'];
-  const hairPaint = (f, x, w, h) => { mottle(x, w, h, HP, 81, 0.65); if (f === 'top') mottle(x, w, h, HP, 82, 0.2); };
-  const hmats = []; const hp = (a, b, c, px, py, pz) => { const m = part(a, b, c, hairPaint, false, hmats); m.position.set(px * PX, py * PX, pz * PX); C.head.add(m); return m; };
-  hp(9, 3, 9, 0, 2.6, 0);          // 頭を覆う外側の層(上3段)
-  hp(8, 1, 8, 0, 4.6, 0.0);        // その上の段
-  hp(5, 1, 5, 0.2, 5.6, -0.3);     // さらに上の小さな段
-  hp(3, 2, 1, -2.8, 1.4, 4.9).rotation.x = -0.25; hp(3, 2, 1, 0, 1.5, 5.0).rotation.x = -0.3; hp(3, 2, 1, 2.8, 1.4, 4.9).rotation.x = -0.25; // 額の前髪
-  hp(9, 4, 1, 0, 0.5, -4.9);       // 後ろ髪(首の近くまで)
-  hp(1, 3, 6, -4.9, 1.2, 0); hp(1, 3, 6, 4.9, 1.2, 0); // 側頭部の髪
-  const tm = [0xf4f0fa, 0xe6def2, 0xffffff].map(c => new THREE.MeshLambertMaterial({ color: c, emissive: 0x7a768a })); tm.forEach(m => C.mats.push(m));
-  [[-2.8, 6.4, 0.6, 0.12], [-0.8, 7.0, -0.8, -0.05], [1.8, 6.6, 0.8, 0.1], [3.0, 6.2, -0.6, -0.14], [0.2, 6.9, 1.8, 0.02]].forEach(([x, y, z, rz], n) => { const m = new THREE.Mesh(new THREE.BoxGeometry(2.0 * PX, 2.6 * PX, 2.0 * PX), tm[n % 3]); m.position.set(x * PX, y * PX, z * PX); m.rotation.z = rz; C.head.add(m); }); // 上の房
-  hmats.forEach(m => { m.emissive.set(0x8a869a); });
-  C.mats.slice(0, -3).forEach((m, i) => m.emissive.set(i >= 6 && i < 12 ? 0x12101a : 0x30264a));
+  // 髪(参考画像を完全再現): 頭の上3段を覆う、天面が平らな四角い白い板。天面の縁に小さな突起(スタッド)が並ぶ。下の縁は階段状にギザギザで、その下に黒い目隠しが見える。
+  const HP = ['#fbf6ff', '#f7f1fd', '#f2eafb', '#ffffff'];
+  const STEP = [0, 2, 3, 6]; // 下の縁で髪が欠ける列(階段状)
+  const hairPaint = (f, x, w, h) => { mottle(x, w, h, HP, 81, 0.1); if (f !== 'top' && f !== 'bottom') STEP.forEach(c => x.clearRect(c % w, h - 1, 1, 1)); if (f === 'front') x.clearRect(5, h - 1, 1, 1); };
+  const hmats = []; const slab = part(9, 3, 9, hairPaint, false, hmats); slab.scale.y = 1.12; slab.position.set(0, 2.62 * PX, 0); C.head.add(slab);
+  hmats.forEach(m => { m.alphaTest = 0.5; m.emissive.set(0xd2cee0); });
+  const sm = new THREE.MeshLambertMaterial({ color: 0xfbf6ff, emissive: 0xd2cee0 }); C.mats.push(sm);
+  [[-3.3, -3.1, 1.0], [-1.4, -3.5, 1.0], [0.5, -3.7, 1.7], [2.5, -3.2, 1.0], [3.6, -1.4, 1.0], [-3.6, -0.7, 1.0], [3.4, 1.6, 1.0]].forEach(([x, z, hgt]) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.7 * PX, hgt * PX, 1.7 * PX), sm); m.position.set(x * PX, (4.3 + hgt / 2 - 0.05) * PX, z * PX); C.head.add(m); });
+  C.mats.slice(0, -1).forEach((m, i) => m.emissive.set(i >= 6 && i < 12 ? 0x12101a : 0x30264a));
   C.paint = gojoPaint; return C;
 }
 // 腕だけの別体(切断された腕など)
