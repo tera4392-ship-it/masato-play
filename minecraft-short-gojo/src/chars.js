@@ -321,25 +321,25 @@ export function addWhiteEyes(C) {
 // 証印用の指ブロック(接写カット専用)
 export function addHands(C) {
   const mk = (sx) => {
-    const grp = new THREE.Group(); grp.position.y = -12 * PX; grp.visible = false; grp.scale.setScalar(1.7);
-    const skin = new THREE.MeshLambertMaterial({ color: 0xffe0c8, emissive: 0x7a5a48 }); const box = (w, h, d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w * PX, h * PX, d * PX), skin); return m; };
-    const palm = box(3.4, 3, 2); palm.position.y = -1.5 * PX; grp.add(palm);
-    const fingers = []; for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((-1.2 + i * 0.8) * PX, -3 * PX, 0); const b = box(0.8, 4.4, 0.8); b.position.y = -2.2 * PX; f.add(b); grp.add(f); fingers.push(f); }
+    const grp = new THREE.Group(); grp.position.y = -12 * PX; grp.visible = false; grp.scale.setScalar(1.9);
+    const skin = new THREE.MeshLambertMaterial({ color: 0xffd8b8, emissive: 0x4a3a30 }); const box = (w, h, d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w * PX, h * PX, d * PX), skin); return m; };
+    const palm = box(3.8, 3.2, 2.4); palm.position.y = -1.6 * PX; grp.add(palm);
+    const fingers = []; for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((-1.4 + i * 0.95) * PX, -3.2 * PX, 0); const b = box(1.0, 4.6, 1.0); b.position.y = -2.3 * PX; f.add(b); grp.add(f); fingers.push(f); }
     const th = new THREE.Group(); th.position.set(sx * 1.8 * PX, -1.2 * PX, 0.4 * PX); const tb = box(0.9, 3, 0.9); tb.position.y = -1.5 * PX; th.add(tb); grp.add(th);
     const glow = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), new THREE.MeshBasicMaterial({ color: 0xaee8ff, toneMapped: false })); glow.visible = false; grp.add(glow);
     grp.userData = { palm, fingers, th, glow }; return grp;
   };
   C.handR = mk(-1); C.armR.add(C.handR); C.handL = mk(1); C.armL.add(C.handL);
 }
-export function setHand(G, pose, t = 0) {
+export function setHand(G, pose, t = 0, u = 1) {
   if (!G) return; const { fingers, th, glow } = G.userData; G.visible = pose !== 'none'; if (!G.visible) return;
   fingers.forEach(f => { f.rotation.set(0, 0, 0); f.children[0].scale.set(1, 1, 1); f.position.z = 0; });
   th.rotation.set(0, 0, 0); glow.visible = false; G.rotation.set(0, 0, 0);
   if (pose === 'cross') { // 人差し指と中指を交差させて立てる
-    G.rotation.x = -PI2; fingers[0].rotation.z = 0.32; fingers[1].rotation.z = -0.32; fingers[0].children[0].scale.y = 1.25; fingers[1].children[0].scale.y = 1.25;
+    G.rotation.x = -PI2; fingers[0].rotation.z = -0.25 + 0.57 * u; fingers[1].rotation.z = 0.25 - 0.57 * u; fingers[0].children[0].scale.y = 1.25; fingers[1].children[0].scale.y = 1.25;
     fingers[0].position.z = -0.25 * PX; fingers[1].position.z = 0.25 * PX;
     fingers[2].rotation.x = 1.5; fingers[3].rotation.x = 1.5; fingers[2].children[0].scale.y = 0.5; fingers[3].children[0].scale.y = 0.5; th.rotation.x = 1.2;
-    glow.visible = true; glow.position.set(0, -6.5 * PX, 0); glow.scale.setScalar(1 + 0.15 * Math.sin(t * 25));
+    glow.visible = u > 0.95; glow.position.set(0, -7.5 * PX, 0); glow.scale.setScalar(1 + 0.15 * Math.sin(t * 25));
   } else if (pose === 'cup') { G.rotation.x = -0.2; fingers.forEach((f, i) => { f.rotation.x = -0.3; }); th.rotation.z = 0.5; }
   else if (pose === 'fist') { fingers.forEach(f => { f.rotation.x = 1.6; f.children[0].scale.y = 0.55; }); th.rotation.x = 0; th.children[0].scale.y = 1.2; G.rotation.x = -0.4; }
   else if (pose === 'open') { fingers.forEach((f, i) => { f.rotation.z = (i - 1.5) * 0.18; }); th.rotation.z = 0.7; }

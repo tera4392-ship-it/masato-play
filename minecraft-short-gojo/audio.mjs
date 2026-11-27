@@ -15,6 +15,10 @@ const mulEnv = (b, a, d) => { for (let i = 0; i < b.length; i++) b[i] *= env(i /
 const mix = (...bs) => { const n = Math.max(...bs.map(b => b.length)); const o = new Float32Array(n); for (const b of bs) for (let i = 0; i < b.length; i++) o[i] += b[i]; return o; };
 const scale = (b, g) => { for (let i = 0; i < b.length; i++) b[i] *= g; return b; };
 const sweepNoise = (dur, f0, f1, d, a = 0.05) => { const n = noise(dur); const out = new Float32Array(n.length); let y = 0; for (let i = 0; i < n.length; i++) { const f = f0 + (f1 - f0) * (i / n.length); const k = Math.exp(-2 * Math.PI * f / SR); y = (1 - k) * n[i] + k * y; out[i] = y * env(i / SR, a, d) * 3; } return out; };
+
+const crackle = (dur, dens, g = 0.6) => { const n = Math.floor(dur * SR); const b = new Float32Array(n); for (let i = 0; i < n; i++) if (Math.abs(rand()) > 1 - dens) { const l = Math.floor(rand() * 30 + 20); for (let j = 0; j < l && i + j < n; j++) b[i + j] += rand() * Math.exp(-j / 8) * g; } return hp(b, 700); };
+const drive = (b, k) => { for (let i = 0; i < b.length; i++) b[i] = Math.tanh(b[i] * k); return b; };
+const subRise = (f0, f1, dur, d) => { let ph = 0; return gen(dur, t => { const f = f0 + (f1 - f0) * (t / dur) * (t / dur); ph += 2 * Math.PI * f / SR; return Math.tanh(Math.sin(ph) * 2.2) * Math.min(1, t / 0.15) * Math.exp(-Math.max(0, t - dur + 0.2) / d); }); };
 const SND = {
   drum: () => mix(scale(sine(110, 45, 0.7, 0.18), 1.0), scale(mulEnv(lp(noise(0.3), 800), 0.001, 0.05), 0.6)),
   wind: () => scale(sweepNoise(3, 300, 900, 1.2, 0.8), 0.5),
@@ -23,7 +27,6 @@ const SND = {
   domain: () => mix(scale(sine(60, 35, 2.0, 0.6), 1.2), scale(sweepNoise(1.8, 200, 3000, 0.5, 0.6), 0.5), scale(sine(220, 220, 1.5, 0.5), 0.15), scale(sine(331, 331, 1.5, 0.5), 0.1), scale(sine(442, 442, 1.5, 0.5), 0.08)),
   rumble: () => { const b = lp(noise(2.5), 120); for (let i = 0; i < b.length; i++) b[i] *= 5 * Math.min(1, i / SR / 0.3) * Math.exp(-i / SR / 1.2) * (0.7 + 0.3 * Math.sin(i / SR * 20)); return b; },
   clash: () => { const n = Math.floor(1.8 * SR); const b = new Float32Array(n); for (let i = 0; i < n; i++) if (Math.abs(rand()) > 0.985) { const l = Math.floor(rand() * 40 + 60); for (let j = 0; j < l && i + j < n; j++) b[i + j] += rand() * Math.exp(-j / 18) * 0.8; } return mix(hp(b, 800), scale(sine(70, 55, 1.8, 0.8), 0.5)); },
-  charge: () => mix(scale(sine(120, 1400, 1.0, 5), 0.35), scale(sweepNoise(1.0, 300, 4000, 5, 0.5), 0.3)),
   slash: () => mix(scale(sweepNoise(0.5, 6000, 1500, 0.1, 0.01), 0.7), scale(sine(2400, 3200, 0.6, 0.15), 0.25), scale(sine(120, 60, 0.4, 0.1), 0.5)),
   shatter: () => { const n = Math.floor(1.6 * SR); const b = new Float32Array(n); for (let k = 0; k < 90; k++) { const st = Math.floor(rand() * 0.5 * SR + 0), f = 2500 + (rand() + 1) * 3000; for (let j = 0; j < 2000 && st + j < n; j++) b[st + j] += Math.sin(2 * Math.PI * f * j / SR) * Math.exp(-j / 260) * 0.12 * (1 - st / n); } return mix(b, scale(mulEnv(lp(noise(0.8), 2500), 0.001, 0.2), 0.7), scale(sine(90, 40, 0.8, 0.2), 0.6)); },
   fire: () => mix(scale(sweepNoise(1.2, 300, 2500, 0.6, 0.5), 0.7), scale(sine(80, 200, 1.0, 0.8), 0.3)),
@@ -54,19 +57,22 @@ const SND = {
   heart: () => scale(sine(70, 45, 0.35, 0.09), 1.4),
   crack: () => mix(scale(mulEnv(hp(noise(0.6), 800), 0.001, 0.2), 1.0), scale(sine(90, 40, 0.8, 0.25), 1.2), scale(mulEnv(lp(noise(1.2), 1500), 0.002, 0.4), 1.0)),
   whoosh: () => scale(sweepNoise(0.9, 400, 4500, 0.25, 0.25), 0.8),
-  charge2: () => mix(scale(sine(90, 600, 1.8, 6), 0.4), scale(sweepNoise(1.8, 6000, 400, 6, 0.9), 0.35)),
   launch: () => mix(scale(sweepNoise(0.8, 300, 5000, 0.2, 0.05), 0.9), scale(sine(60, 120, 0.8, 0.3), 0.8)),
   impact: () => mix(scale(sine(80, 28, 1.6, 0.5), 2.0), scale(mulEnv(lp(noise(1.2), 1200), 0.002, 0.3), 1.4), scale(mulEnv(hp(noise(0.3), 1500), 0.0005, 0.06), 0.8)),
-  sealG: () => { const o = new Float32Array(Math.floor(1.4 * SR)); [880, 1175, 1568, 1976].forEach((f, k) => { const b = scale(sine(f, f, 0.8, 0.25), 0.25); for (let i = 0; i < b.length; i++) o[i + Math.floor(k * 0.1 * SR)] += b[i]; }); return mix(o, scale(sine(60, 50, 1.2, 0.5), 0.6)); },
-  sealY: () => mix(scale(sine(55, 45, 1.4, 0.6), 1.2), scale(mulEnv(hp(noise(0.8), 3000), 0.02, 0.2), 0.5), scale(mulEnv(lp(noise(1.0), 300), 0.05, 0.4), 1.5)),
   sever: () => mix(scale(sweepNoise(0.4, 6000, 2000, 0.07, 0.003), 0.9), scale(sine(150, 50, 0.6, 0.15), 1.4), scale(mulEnv(hp(noise(0.2), 2500), 0.0005, 0.04), 0.7)),
-  poison: () => mix(scale(sine(180, 160, 2.0, 1.0), 0.25), scale(mulEnv(hp(noise(2.0), 4000), 0.2, 0.6), 0.4)),
-  spear: () => { const o = new Float32Array(Math.floor(1.4 * SR)); [1320, 1760, 2640, 3520].forEach((f, k) => { const b = scale(sine(f, f, 1.2, 0.4), 0.2); for (let i = 0; i < b.length; i++) o[i] += b[i] * (k === 0 ? 1.4 : 0.8); }); return o; },
   cancel: () => mix(scale(sine(60, 22, 3.0, 0.9), 2.0), scale(mulEnv(lp(noise(2.5), 2500), 0.001, 0.6), 1.5), scale(sweepNoise(1.4, 9000, 600, 0.3, 0.01), 0.9), scale(sine(2000, 1000, 1.5, 0.3), 0.2)),
-  blue: () => mix(scale(sweepNoise(0.5, 400, 5000, 0.1, 0.4), 0.8), scale(sine(70, 25, 2.2, 0.5), 2.2), scale(mulEnv(lp(noise(1.5), 1500), 0.002, 0.4), 1.4), scale(sine(1500, 500, 0.6, 0.15), 0.3)),
-  domainG: () => mix(scale(sine(50, 30, 3.5, 1.2), 2.0), scale(sweepNoise(3.0, 200, 6000, 1.0, 1.0), 0.7), scale(sine(440, 440, 3.0, 1.2), 0.15), scale(sine(660, 660, 3.0, 1.2), 0.12)),
-  drone: () => { const b = gen(6, (t) => (Math.sin(2 * Math.PI * 55 * t) * 0.6 + Math.sin(2 * Math.PI * 82.5 * t) * 0.4 + Math.sin(2 * Math.PI * 110.4 * t) * 0.2) * Math.min(1, t / 1.0) * Math.exp(-Math.max(0, t - 4.5) / 0.6)); return scale(b, 0.5); },
   dawn: () => scale(sweepNoise(4, 200, 900, 2.0, 1.5), 0.3),
+
+  charge: () => mix(scale(sweepNoise(1.0, 200, 3500, 5, 0.9), 0.7), scale(subRise(40, 90, 1.0, 0.3), 1.3), scale(crackle(1.0, 0.004, 0.5), 0.8)),
+  charge2: () => mix(scale(sweepNoise(1.8, 150, 4500, 6, 1.6), 0.8), scale(subRise(35, 85, 1.8, 0.4), 1.4), scale(crackle(1.8, 0.003, 0.4), 0.6), scale(mulEnv(lp(noise(0.5), 400), 0.001, 0.12), 0.0)),
+  sealG: () => { const o = new Float32Array(Math.floor(1.0 * SR)); const click = (t0, g) => { const b = scale(mulEnv(hp(noise(0.06), 2500), 0.0005, 0.012), g); const off = Math.floor(t0 * SR); for (let i = 0; i < b.length; i++) o[off + i] += b[i]; };
+    click(0.0, 1.0); click(0.07, 0.8); const hit = mix(scale(sine(90, 40, 0.5, 0.12), 1.6), scale(mulEnv(lp(noise(0.3), 800), 0.001, 0.07), 1.0), scale(sweepNoise(0.5, 7000, 2500, 0.1, 0.003), 0.6)); const off = Math.floor(0.12 * SR); for (let i = 0; i < hit.length; i++) o[off + i] += hit[i]; return o; },
+  sealY: () => mix(scale(subRise(30, 45, 1.2, 0.3), 1.6), scale(crackle(1.2, 0.006, 0.7), 1.0), scale(mulEnv(lp(noise(0.6), 500), 0.001, 0.15), 1.4), scale(mulEnv(hp(noise(0.2), 2200), 0.0005, 0.04), 0.7)),
+  spear: () => mix(scale(sweepNoise(0.5, 9000, 3000, 0.1, 0.002), 0.9), scale(mulEnv(hp(noise(0.25), 3000), 0.0005, 0.05), 0.9), scale(sine(110, 45, 0.7, 0.18), 1.4), scale(crackle(0.8, 0.003, 0.5), 0.5)),
+  poison: () => { const o = new Float32Array(Math.floor(2.0 * SR)); for (let k = 0; k < 6; k++) { const b = scale(sine(70, 45, 0.3, 0.07), 1.0); const off = Math.floor((k * 0.33) * SR); for (let i = 0; i < b.length && off + i < o.length; i++) o[off + i] += b[i]; } return mix(o, scale(crackle(2.0, 0.002, 0.4), 0.6), scale(mulEnv(lp(noise(2.0), 250), 0.3, 0.8), 0.8)); },
+  blue: () => mix(scale(sweepNoise(0.5, 400, 5000, 0.1, 0.4), 0.8), scale(sine(70, 25, 2.2, 0.5), 2.2), scale(mulEnv(lp(noise(1.5), 1500), 0.002, 0.4), 1.4)),
+  domainG: () => mix(scale(subRise(30, 55, 3.5, 1.2), 2.0), scale(sweepNoise(3.0, 200, 6000, 1.0, 1.0), 0.7), scale(crackle(3.0, 0.002, 0.5), 0.6)),
+  drone: () => { const b = lp(noise(6), 120); for (let i = 0; i < b.length; i++) b[i] *= 6 * Math.min(1, i / SR / 1.0) * Math.exp(-Math.max(0, i / SR - 4.5) / 0.6); return mix(b, scale(subRise(40, 42, 6, 0.8), 0.8)); },
   pop: () => scale(sq(880, 0.12, 0.05), 0.5),
 };
 for (const [t, type, g] of SE) {

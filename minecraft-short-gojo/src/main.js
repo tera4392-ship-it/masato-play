@@ -59,6 +59,8 @@ const G = makeGojo(scene), Y = makeYuji(scene);
 addWhiteEyes(Y); addHands(G); addHands(Y);
 const ghostsG = [0, 1, 2].map(() => makeGojo(scene)), ghostsY = [0, 1, 2].map(() => makeYuji(scene));
 [[ghostsG, 0x60b0ff], [ghostsY, 0xff3040]].forEach(([arr, col]) => arr.forEach((c, i) => { c.root.visible = false; c.shadow.visible = false; c.mats.forEach(m => { m.transparent = true; m.opacity = [0.4, 0.25, 0.14][i]; m.depthWrite = false; m.color.set(col); m.emissive.set(col); m.emissiveIntensity = 0.5; }); }));
+const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(9, 14), new THREE.MeshBasicMaterial({ color: 0x03040a })); backdrop.visible = false; scene.add(backdrop); let bdOn = false;
+const handLight = new THREE.PointLight(0xdfeaff, 0, 6, 1.5); scene.add(handLight);
 const flyingArm = makeLimb(scene, G.paint); const spear = makeSpear(scene);
 
 const PRE = {
@@ -74,6 +76,7 @@ const PRE = {
   sealG: { Rf: 1.95, Rab: -.15, Lf: 1.2, Lab: -.35 },
   sealL: { Lf: 1.95, Lab: -.15, Rf: .05, Rab: .1 },
   sealY: { Rf: 1.3, Rab: -.5, Lf: 1.3, Lab: -.5, lean: .1 },
+  sealYopen: { Rf: 1.0, Rab: .5, Lf: 1.0, Lab: .5, lean: .1, lr: .3, ll: -.3 },
   strain: { Rf: 1.5, Rab: -.15, Lf: 1.5, Lab: -.15, lean: .15, lr: .2, ll: -.2 },
   windR: { Rf: -1.0, Lf: .5, Lab: .3, lean: -.15, twist: .4, lr: -.4, ll: .4 },
   windL: { Lf: -1.0, Rf: .5, Rab: .3, lean: -.15, twist: -.4, lr: .4, ll: -.4 },
@@ -110,8 +113,8 @@ function evalActor(keys, t, bob) {
 // 五条(yaw 0, 北側)
 const GK = compile([
   [0, 'idle', { x: 0, y: 30, z: -28, yaw: 0 }], [5.6, 'idle'], [5.95, 'crouch'], [6.0, 'crouch'], [6.7, 'fly', { y: 40, z: -17 }], [7.5, 'fly', { y: 34, z: -6 }], [8.2, 'aimL'], [10.6, 'aimL'], [11.6, 'aimL'],
-  [12.0, 'hurt', { y: 35, z: -8 }], [12.5, 'tumble1', { y: 34, z: -9 }], [13.2, 'fly', { y: 18, z: -7 }], [13.9, 'landing', { y: 0, z: -4 }], [14.4, 'landing'], [14.8, 'idle'], [14.95, 'sealG'], [16.4, 'sealG'],
-  [17.6, 'strain'], [20.5, 'strain'], [20.8, 'hurt'], [21.4, 'stagger'], [22.0, 'guard'], [22.3, 'hurt'], [22.8, 'stagger'],
+  [12.0, 'hurt', { y: 35, z: -8 }], [12.5, 'tumble1', { y: 34, z: -9 }], [13.2, 'fly', { y: 18, z: -7 }], [13.9, 'landing', { y: 0, z: -4 }], [14.4, 'landing'], [14.5, 'sealG'], [17.6, 'sealG'],
+  [17.65, 'strain'], [20.5, 'strain'], [20.8, 'hurt'], [21.4, 'stagger'], [22.0, 'guard'], [22.3, 'hurt'], [22.8, 'stagger'],
   [23.5, 'stagger', { z: -4.0 }], [23.7, 'hurt', { z: -4.7 }], [24.2, 'stagger'], [24.4, 'hurt', { z: -5.4 }], [24.9, 'stagger'], [25.1, 'hurt', { z: -6.1 }], [25.6, 'stagger'], [25.8, 'hurt', { z: -6.8 }],
   [26.3, 'stagger'], [26.5, 'hurt', { z: -7.4 }], [27.0, 'stagger'], [27.2, 'hurt'], [27.6, 'frozen'], [29.6, 'frozen'], [29.8, 'spearL'], [30.0, 'thrust'], [30.5, 'idle'], [32.9, 'guard'], [33.3, 'windL'], [33.5, 'punchL'], [34.1, 'punchL'], [34.8, 'idle'],
   [36.0, 'idle'], [36.2, 'sealL'], [37.5, 'sealL'], [37.8, 'idle'], [45.0, 'idle'],
@@ -119,7 +122,7 @@ const GK = compile([
 // 虎杖(yaw π, 南側)
 const YK = compile([
   [0, 'idle', { x: 0, y: 30, z: 28, yaw: PI }], [4.0, 'guard'], [5.6, 'guard'], [5.95, 'crouch'], [6.0, 'crouch'], [6.7, 'fly', { y: 40, z: 17 }], [7.5, 'fly', { y: 34, z: 6 }], [7.9, 'up'], [10.5, 'up'], [10.6, 'slashY'], [11.0, 'slashY'],
-  [12.0, 'hurt', { y: 35, z: 8 }], [12.5, 'tumble1', { y: 34, z: 9 }], [13.2, 'fly', { y: 18, z: 7 }], [13.9, 'landing', { y: 0, z: 4 }], [14.4, 'landing'], [14.8, 'idle'], [15.8, 'sealY'], [17.9, 'strain'],
+  [12.0, 'hurt', { y: 35, z: 8 }], [12.5, 'tumble1', { y: 34, z: 9 }], [13.2, 'fly', { y: 18, z: 7 }], [13.9, 'landing', { y: 0, z: 4 }], [14.4, 'landing'], [15.5, 'idle'], [15.6, 'sealYopen'], [16.4, 'sealY'], [17.9, 'sealY'], [17.95, 'strain'],
   [19.8, 'strain'], [20.2, 'up'], [20.5, 'slashY'], [21.2, 'idle'], [21.7, 'up'], [22.0, 'slashY'], [22.4, 'lunge', { z: 3 }], [22.9, 'windR', { z: -1.5 }],
   [23.5, 'punchR', { z: -2.7 }], [23.8, 'punchR'], [24.0, 'windL'], [24.2, 'punchL', { z: -3.4 }], [24.5, 'punchL'], [24.7, 'windR'], [24.9, 'punchR', { z: -4.1 }], [25.2, 'punchR'], [25.4, 'windL'], [25.6, 'punchL', { z: -4.8 }],
   [25.9, 'punchL'], [26.0, 'windR'], [26.3, 'punchR', { z: -5.5 }], [26.8, 'punchR'], [27.0, 'palms', { z: -6.1 }], [27.6, 'palms'], [28.4, 'guard'], [29.9, 'guard'], [30.1, 'hurt', { z: -5.4 }], [30.5, 'stagger', { z: -3 }], [31.5, 'guard', { z: -2.5 }],
@@ -143,6 +146,9 @@ class Bolts {
     for (let k = 1; k <= n; k++) { const p = a.clone().lerp(b, k / n);
       if (k < n) p.addScaledVector(p1, (rnd(seed * 7.1 + k * 3.3) - 0.5) * jit * 2).addScaledVector(p2, (rnd(seed * 5.3 + k * 1.9) - 0.5) * jit * 2);
       this.seg(prev, p, w, color); prev = p; }
+  }
+  circle(c, r, w, color, N = 40, axis = 'y', rot = 0) {
+    for (let i = 0; i < N; i++) { const a0 = rot + (i / N) * PI * 2, a1 = rot + ((i + 1) / N) * PI * 2; const f = a => axis === 'y' ? V3(c.x + Math.cos(a) * r, c.y, c.z + Math.sin(a) * r) : V3(c.x + Math.cos(a) * r, c.y + Math.sin(a) * r, c.z); this.seg(f(a0), f(a1), w, color); }
   }
   ring(c, r, w, color, seed, N = 24, axis = 'z') {
     for (let i = 0; i < N; i++) { const a0 = (i / N) * PI * 2, a1 = ((i + 1) / N) * PI * 2;
@@ -243,8 +249,9 @@ function updateScene(t, tvid) {
   const pz = clamp((t - T.poison) / 0.4) * (t < T.heal + 1.6 ? 1 : 1 - smooth(clamp((t - T.heal - 1.6) / 1.0)));
   setTint(G, 0x8a4aa8, 0.55 * pz); setTint(Y, 0xffffff, 0);
   Y.whiteEyes.visible = t >= T.whiteEyes && t < 45.5;
-  setHand(G.handR, t > 14.9 && t < 17.6 ? 'cross' : 'none', tvid); setHand(G.handL, t > 14.9 && t < 17.6 ? 'cup' : (t > 36.2 && t < 37.8 ? 'cross' : 'none'), tvid);
-  setHand(Y.handR, (t > 15.8 && t < 17.9) || (t > 37.8 && t < 39.0) ? 'fist' : 'none', tvid); setHand(Y.handL, (t > 15.8 && t < 17.9) || (t > 37.8 && t < 39.0) ? 'fist' : 'none', tvid);
+  const uG = clamp((t - 14.6) / 0.7), uG2 = clamp((t - 36.3) / 0.7);
+  setHand(G.handR, t > 14.5 && t < 17.7 ? 'cross' : 'none', tvid, uG); setHand(G.handL, t > 14.5 && t < 17.7 ? 'cup' : (t > 36.2 && t < 37.8 ? 'cross' : 'none'), tvid, t > 14.5 && t < 17.7 ? 1 : uG2);
+  const yS = (t > 15.6 && t < 18.0) || (t > 37.8 && t < 39.0); setHand(Y.handR, yS ? 'fist' : 'none', tvid); setHand(Y.handL, yS ? 'fist' : 'none', tvid);
   // 腕・槍
   const as = armState(t); flyingArm.visible = !!as && t < 31; if (as) { flyingArm.position.copy(as.p); flyingArm.rotation.set(as.rx, 0.5, as.rz); }
   // 残像
@@ -266,6 +273,31 @@ function crescent(c, R, span, w, col, seed, frame) {
   const N = 16; let prev = null;
   for (let i = 0; i <= N; i++) { const ph = lerp(-span, span, i / N); const p = V3(c.x + R * Math.sin(ph), c.y + R * (Math.cos(ph) - 1), c.z + R * (1 - Math.cos(ph)) * 0.45 + (rnd(i + seed + frame) - .5) * 0.2);
     if (prev) { bolts.seg(prev, p, w * 2.4, col); bolts.seg(prev, p, w, 0xffffff); } prev = p; }
+}
+
+// 証印の紋様(光の線): 五条=円+交差した二本線(指の交差) / 虎杖=円+合わせた拳(菱形)+放射の棘
+function sigil(kind, c, r, w, t, axis) {
+  const rot = t * 0.5;
+  if (kind === 'G') { const col = 0x9ad0ff;
+    bolts.circle(c, r, w, col, 56, axis, rot); bolts.circle(c, r * 0.62, w * 0.7, 0xffffff, 40, axis, -rot);
+    for (const s of [-1, 1]) { const a = rot + s * 0.62 + PI / 2; const d = (x) => axis === 'y' ? V3(Math.cos(a) * x, 0, Math.sin(a) * x) : V3(Math.cos(a) * x, Math.sin(a) * x, 0); bolts.seg(c.clone().add(d(-r * 0.95)), c.clone().add(d(r * 0.95)), w * 1.3, 0xffffff); }
+    for (let k = 0; k < 8; k++) { const a = rot * 0.5 + (k / 8) * PI * 2; const d = (x) => axis === 'y' ? V3(Math.cos(a) * x, 0, Math.sin(a) * x) : V3(Math.cos(a) * x, Math.sin(a) * x, 0); bolts.seg(c.clone().add(d(r * 1.0)), c.clone().add(d(r * 1.12)), w * 1.1, col); }
+  } else { const col = 0xff2a40;
+    bolts.circle(c, r, w * 1.2, col, 56, axis, -rot); bolts.circle(c, r * 0.7, w * 0.8, 0x000000, 44, axis, rot);
+    const dm = (x, a) => axis === 'y' ? V3(Math.cos(a) * x, 0, Math.sin(a) * x) : V3(Math.cos(a) * x, Math.sin(a) * x, 0);
+    for (let k = 0; k < 4; k++) { const a0 = rot + (k / 4) * PI * 2, a1 = rot + ((k + 1) / 4) * PI * 2; bolts.seg(c.clone().add(dm(r * 0.62, a0)), c.clone().add(dm(r * 0.62, a1)), w * 1.4, 0xffffff); }
+    for (let k = 0; k < 8; k++) { const a = -rot + (k / 8) * PI * 2; bolts.seg(c.clone().add(dm(r * 1.0, a)), c.clone().add(dm(r * (k % 2 ? 1.18 : 1.32), a)), w * 1.4, k % 2 ? col : 0x000000); }
+  }
+}
+function sigils(t, frame) {
+  // 五条: 手元で記号が完成(14.95〜)、足元から外へ拡がる(15.4〜17.6)
+  if (t > T.sealGdone - 0.1 && t < 17.7) { const h = handW(G, 'R').add(V3(0, 0.0, 0.0)); const k = clamp((t - T.sealGdone) / 0.35); sigil('G', h.clone().add(V3(0, 0.35, 0.25)), 0.3 + 0.25 * easeOut(k), 0.012 + 0.01 * (1 - k), t, 'z'); }
+  if (t > T.sealGdone + 0.1 && t < 17.7) { const k = clamp((t - T.sealGdone - 0.1) / 1.6); sigil('G', V3(0, 0.06, -4), 1.0 + 9 * easeOut(k), 0.12 * (1 - 0.3 * k), t, 'y'); }
+  // 虎杖: 拳を合わせて完成(16.4〜)、足元から拡がる
+  if (t > T.sealYdone - 0.1 && t < 18.0) { const h = handW(Y, 'R').add(handW(Y, 'L')).multiplyScalar(0.5); const k = clamp((t - T.sealYdone) / 0.35); sigil('Y', h.clone().add(V3(0, 0.35, -0.25)), 0.3 + 0.25 * easeOut(k), 0.012 + 0.01 * (1 - k), t, 'z'); }
+  if (t > T.sealYdone + 0.1 && t < 18.0) { const k = clamp((t - T.sealYdone - 0.1) / 1.5); sigil('Y', V3(0, 0.06, 4), 1.0 + 10 * easeOut(k), 0.14 * (1 - 0.3 * k), t, 'y'); }
+  // 完成の瞬間の閃光
+  for (const [tt, col] of [[T.sealGdone, 0xaad0ff], [T.sealYdone, 0xff2a40]]) { const d = t - tt; if (d >= 0 && d < 0.3) { flashW = Math.max(flashW, 0.25 * (1 - d / 0.3)); shakeAmp = Math.max(shakeAmp, 0.2 * (1 - d / 0.3)); } }
 }
 function updateFx(t, tvid) {
   bolts.begin(); flashW = 0; invert = 0; fxLight.intensity = 0; shakeAmp = 0; bfD = -1;
@@ -301,8 +333,9 @@ function updateFx(t, tvid) {
   { const d = hit(T.land, 0.7); if (d >= 0) { for (const z of [-4, 4]) { bolts.ring(V3(0, 0.1, z), 9 * easeOut(d / 0.7), 0.25 * (1 - d / 0.7) + 0.03, 0xffffff, frame + z, 26, 'y');
         for (let k = 0; k < 8; k++) { const a = rnd(k + z) * PI * 2; bolts.seg(V3(0, 0.08, z), V3(Math.cos(a) * 5, 0.08, z + Math.sin(a) * 5).lerp(V3(0, 0.08, z), 1 - easeOut(clamp(d / 0.3))), 0.12, 0x101018); } }
       shakeAmp = Math.max(shakeAmp, 0.7 * (1 - d / 0.7)); flashW = Math.max(flashW, 0.15 * (1 - d / 0.7)); } }
-  // 証印の光
-  if (t > 14.9 && t < 17.6) { const f = handW(G, 'R').add(V3(0, 0.5, 0)); for (let b = 0; b < 4; b++) bolts.bolt(f, f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(0.3 + 0.3 * rnd(b + frame))), { n: 3, jit: .06, w: 0.008, color: b % 2 ? 0xffffff : 0x9ad0ff, seed: frame * 3 + b }); }
+  // 証印(B案): 光の線で印を描く
+  sigils(t, frame);
+  if (false) { const f = handW(G, 'R').add(V3(0, 0.5, 0)); for (let b = 0; b < 4; b++) bolts.bolt(f, f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(0.3 + 0.3 * rnd(b + frame))), { n: 3, jit: .06, w: 0.008, color: b % 2 ? 0xffffff : 0x9ad0ff, seed: frame * 3 + b }); }
   if ((t > 15.9 && t < 17.9) || (t > 37.8 && t < 39.0)) { for (const sd of ['R', 'L']) { const f = handW(Y, sd); for (let b = 0; b < 6; b++) { const e = f.clone().add(V3(rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5, rnd(frame * 7 + b) - .5).normalize().multiplyScalar(0.3 + 0.4 * rnd(b + frame)));
       bolts.bolt(f, e, { n: 3, jit: .1, w: 0.012, color: 0xff1a38, seed: frame * 9 + b }); bolts.bolt(f, e, { n: 3, jit: .1, w: 0.005, color: 0x000000, seed: frame * 9 + b }); } } }
   if (t > 36.2 && t < 37.8) { const f = handW(G, 'L').add(V3(0, 0.5, 0)); for (let b = 0; b < 4; b++) bolts.bolt(f, f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(0.3)), { n: 3, jit: .06, w: 0.008, color: 0x9ad0ff, seed: frame * 3 + b }); }
@@ -360,7 +393,9 @@ function updateFx(t, tvid) {
 // ---------- カメラ ----------
 const UP = V3(0, 1, 0), UPZ = V3(0, 0, -1);
 function orbit(c, r, h, a0, a1, t, t0, t1) { const a = lerp(a0, a1, clamp((t - t0) / (t1 - t0))); return V3(c.x + Math.sin(a) * r, h, c.z + Math.cos(a) * r); }
+let bd = null;
 function shot(t, tvid) {
+  bd = null;
   if (q.has('cam')) { const c = q.get('cam').split(',').map(Number); camera.up.set(0, 1, 0); camera.position.set(c[0], c[1], c[2]); camera.lookAt(c[3], c[4], c[5]); camera.fov = c[6] || 50; camera.updateProjectionMatrix(); return; }
   let p, l, fov = 50, up = UP.clone(), roll = 0, sh = 0;
   const gh = head(G), yh = head(Y), gp = G.root.position, yp = Y.root.position, gb = bodyOf(G), yb = bodyOf(Y);
@@ -374,9 +409,11 @@ function shot(t, tvid) {
   else if (t < 11.6) { p = V(kf(t, [[10.6, [28, 36, 2]], [11.6, [16, 35, 3]]], lin)); l = V3(0, 34.5, 0); fov = 46; sh = 0.1; }
   else if (t < 12.4) { p = V(kf(t, [[11.6, [13, 35.5, 3]], [12.4, [8, 35, 3]]], lin)); l = V3(0, 34, 0); fov = 52; sh = 0.15; roll = 0.1; }
   else if (t < 13.9) { p = V(kf(t, [[12.4, [10, 30, 4]], [13.9, [7, 4, 5]]], lin)); l = V(kf(t, [[12.4, [0, 34, 0]], [13.9, [0, 3, -1]]], lin)); fov = 58; sh = 0.1; roll = -0.1; }
-  else if (t < 14.9) { p = V3(9, 1.6, 8); l = V3(0, 1.3, -1); fov = 56; sh = 0.2 * (14.9 - t); }
-  else if (t < 15.9) { const h = handW(G, 'R'); p = h.clone().add(V3(0.1, 0.45, 1.0)); l = h.clone().add(V3(0, 0.4, 0)); fov = 30; sh = 0.008; }
-  else if (t < 17.6) { const h = handW(Y, 'R').add(handW(Y, 'L')).multiplyScalar(0.5); p = h.clone().add(V3(0.0, 0.2, -0.95)); l = h.clone().add(V3(0, 0.05, 0)); fov = 32; sh = 0.015; }
+  else if (t < 14.5) { p = V3(9, 1.6, 8); l = V3(0, 1.3, -1); fov = 56; sh = 0.2 * (14.5 - t); }
+  else if (t < 15.4) { const h = handW(G, 'R'); p = h.clone().add(V3(0.25, 0.6, 1.6)); l = h.clone().add(V3(0, 0.5, 0)); fov = 28; sh = 0.006; bd = [l, p]; }
+  else if (t < 15.9) { p = V(kf(t, [[15.4, [0.2, 2.2, -2.4]], [15.9, [2.2, 2.0, 0.6]]], lin)); l = V3(0, 1.5, -4); fov = 46; sh = 0.01; }
+  else if (t < 16.9) { const h = handW(Y, 'R').add(handW(Y, 'L')).multiplyScalar(0.5); p = h.clone().add(V3(0, 0.3, -1.6)); l = h.clone().add(V3(0, 0.25, 0)); fov = 30; sh = 0.008; bd = [l, p]; }
+  else if (t < 17.6) { p = V(kf(t, [[16.9, [10, 3.2, 1]], [17.6, [11, 3.6, 0.5]]], lin)); l = V3(0, 1.0, 0); fov = 52; sh = 0.01; }
   else if (t < 19.0) { p = orbit(V3(0, 0, 0), 18, 4.5, 0, 1.9, t, 17.6, 19.0); l = V3(0, 3, 0); fov = 56; sh = 0.1; roll = 0.1; }
   else if (t < 20.5) { p = V3(0, 48, 0.01); l = V3(0, 0, 0); up = UPZ.clone(); fov = 52; sh = 0.06; }
   else if (t < 21.2) { p = V3(22, 8, 6); l = V3(0, 4, -2); fov = 54; sh = 0.3; roll = 0.1; }
@@ -406,6 +443,7 @@ function shot(t, tvid) {
   const total = Math.max(sh, shakeAmp);
   camera.up.copy(up); if (up.z === 0 && roll) camera.up.applyAxisAngle(V3(0, 0, 1), roll);
   camera.position.copy(p).add(shake(tvid, total)); camera.lookAt(l); camera.fov = fov; camera.updateProjectionMatrix();
+  if (bd) { const dir = bd[0].clone().sub(bd[1]).normalize(); backdrop.visible = true; backdrop.position.copy(bd[0]).addScaledVector(dir, 0.9); backdrop.lookAt(camera.position); handLight.position.copy(bd[0]).addScaledVector(dir, -0.5).add(V3(0, 0.4, 0)); handLight.intensity = 0.5; } else { backdrop.visible = false; handLight.intensity = 0; }
 }
 
 // ---------- ポスト ----------
@@ -432,7 +470,7 @@ function updatePost(t, tvid) {
   u.uFade.value = kf(tvid, [[0, 1], [0.25, 0], [VID_DUR - 1.0, 0], [VID_DUR, 1]], lin);
   u.uCA.value = 0.0007; u.uStr.value = 0;
   for (const tc of SHOCKS) { const d = t - tc; if (d >= 0 && d < 0.8) { const pos = tc === T.clash ? V3(0, 34, 0) : tc === T.counter ? V3(0, 1.4, -5.9) : tc === T.domG2 ? V3(0, 1.5, -7.4) : tc >= 23 && tc < 27 ? bfPos : V3(0, 2, 0); const sp = pos.clone().project(camera); u.uC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uR.value = d * 1.4; u.uStr.value = 1.0 * (1 - d / 0.8); u.uCA.value = 0.0007 + 0.011 * (1 - d / 0.8); } }
-  bloom.strength = 0.55 + Math.min(0.8, flashW * 0.8);
+  bloom.strength = (bd ? 0.2 : 0.55) + Math.min(0.8, flashW * 0.8);
 }
 // ---------- 画面効果(スピード線のみ。文字は一切出さない) ----------
 const SPEED = [[6.0, 0.6], [10.6, 0.5], [11.6, 0.9], [13.0, 0.9], [T.land, 0.3], [T.domG, 0.3], [T.domY, 0.3], [T.cut, 0.3], [T.slash2, 0.3], [22.4, 0.5], ...T.bf.map(b => [b, 0.2]), [T.pierce, 0.3], [T.cancel, 0.4], [T.rush, 0.6], [T.counter, 0.4], [33.7, 1.3], [T.domG2, 0.5]];
