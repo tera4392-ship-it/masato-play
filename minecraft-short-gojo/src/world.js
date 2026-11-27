@@ -115,7 +115,7 @@ export function buildWorld(scene) {
     for (let i = 0; i < 70; i++) { const a = (i / 70) * PI * 2, d = 190 + rnd(i * 3.3) * 120; const h = 40 + rnd(i * 5.1) * 120; tower(Math.cos(a) * d, Math.sin(a) * d, 18 + rnd(i) * 20, 18 + rnd(i * 2) * 20, h, kinds[i % 4], i * 3, { signs: false, faces: [[0, 0]] }); }
     // 切断される高層ビル(斬撃で上部がずれ落ちる): 交差点を挟む左右
     W.anim.cut = [];
-    for (const sx of [-1, 1]) { const x = sx * 27, z = 4, w = 16, d = 20, h = 70, cutY = 40; const lowerMat = [], base = tower(x, z, w, d, cutY, 'glass', 400 + sx, { flat: true, faces: [[-sx, 0]] });
+    for (const sx of [-1, 1]) { const x = sx * 27, z = 4, w = 16, d = 20, h = 70, cutY = 36; const lowerMat = [], base = tower(x, z, w, d, cutY, 'glass', 400 + sx, { flat: true, faces: [[-sx, 0]] });
       const up = new THREE.Group(); up.position.set(x, cutY, z); g.add(up); const mm = facadeMat('glass', 400 + sx, d / 32, (h - cutY) / 57.6, 0.3), mz2 = facadeMat('glass', 400 + sx, w / 32, (h - cutY) / 57.6, 0.6);
       const um = new THREE.Mesh(BOX, [mm, mm, lam(0x1a1c26), lam(0x1a1c26), mz2, mz2]); um.scale.set(w, h - cutY, d); um.position.y = (h - cutY) / 2; up.add(um);
       for (const px of [-1, 1]) for (const pz of [-1, 1]) { const p = new THREE.Mesh(BOX, lam(0x3a3e4c)); p.scale.set(1.1, h - cutY + 0.4, 1.1); p.position.set(px * w / 2, (h - cutY) / 2, pz * d / 2); up.add(p); }

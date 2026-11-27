@@ -236,9 +236,9 @@ class Ribbon {
     this.mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { c: { value: new THREE.Color(color) } },
       vertexShader: 'attribute float a; varying float va; void main(){va=a; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', fragmentShader: 'uniform vec3 c; varying float va; void main(){gl_FragColor=vec4(c*va,va);}', toneMapped: false }));
     this.mesh.frustumCulled = false; this.mesh.visible = false; scene.add(this.mesh); }
-  set(pts, w) { const n = this.n; this.mesh.visible = true; const cp = camera.position;
+  set(pts, w, flat = false) { const n = this.n; this.mesh.visible = true; const cp = camera.position;
     for (let i = 0; i < n; i++) { const p = pts[Math.min(i, pts.length - 1)], a = pts[Math.max(i - 1, 0)], b = pts[Math.min(i + 1, pts.length - 1)];
-      const f = this.sym ? Math.sin(Math.PI * i / (n - 1)) : 1 - i / (n - 1); const tg = b.clone().sub(a); const side = tg.cross(cp.clone().sub(p)).normalize().multiplyScalar(w * f);
+      const f = this.sym ? Math.sin(Math.PI * i / (n - 1)) : 1 - i / (n - 1); const tg = b.clone().sub(a); const side = tg.cross(flat ? V3(0, 1, 0) : cp.clone().sub(p)).normalize().multiplyScalar(w * f);
       this.pos.set([p.x + side.x, p.y + side.y, p.z + side.z, p.x - side.x, p.y - side.y, p.z - side.z], i * 6); this.al[i * 2] = this.al[i * 2 + 1] = f * f; }
     this.mesh.geometry.attributes.position.needsUpdate = true; this.mesh.geometry.attributes.a.needsUpdate = true; }
 }
@@ -274,8 +274,11 @@ const haloB = halo(0x4a8aff), haloR = halo(0xff3a30), haloP = halo(0x9a40ff), ha
 const ribB = new Ribbon(24, 0x6ab0ff), ribR = new Ribbon(24, 0xff5040), ribP = new Ribbon(28, 0x9a40ff);
 const CRES = [0, 1, 2, 3].map(() => ({ a: new Ribbon(56, 0xff2a40, true), b: new Ribbon(56, 0xffffff, true), c: new Ribbon(56, 0xff8aa0, true) }));
 // 二重の三日月(社長の指定): 両端が鋭く、中央が太い。外側の大弧(赤)+内側の弧(白)+薄い第二の弧
-function crescentFx(i, c, R, span, w, tilt = 0, yaw = 0, col = 0xff2a40) {
+function crescentFx(i, c, R, span, w, tilt = 0, yaw = 0, col = 0xff2a40, flat = false) {
   const cr = CRES[i]; cr.a.mesh.material.uniforms.c.value.set(col);
+  if (flat) { // 水平に寝た三日月(解): 凸側が進行方向(-z)。両端は後ろへ流れる
+    const mkh = (RR, dy) => { const pts = []; for (let k = 0; k < 56; k++) { const ph = lerp(-span, span, k / 55); const lx = RR * Math.sin(ph), lz = RR * (1 - Math.cos(ph)) * 0.8; pts.push(V3(c.x + lx * Math.cos(yaw) + lz * Math.sin(yaw), c.y + dy + lx * Math.sin(tilt) * 0.2, c.z - lx * Math.sin(yaw) + lz * Math.cos(yaw))); } return pts; };
+    cr.a.set(mkh(R, 0), w, true); cr.b.set(mkh(R * 0.95, -0.02 * R), w * 0.5, true); cr.c.set(mkh(R * 0.84, -0.05 * R), w * 0.55, true); return; }
   const mk = (RR, dy, dz) => { const pts = []; for (let k = 0; k < 56; k++) { const ph = lerp(-span, span, k / 55); const lx = RR * Math.sin(ph), ly = RR * (Math.cos(ph) - 1) + dy, lz = RR * (1 - Math.cos(ph)) * 0.45 + dz;
       const x1 = lx * Math.cos(tilt) - ly * Math.sin(tilt), y1 = lx * Math.sin(tilt) + ly * Math.cos(tilt); pts.push(V3(c.x + x1 * Math.cos(yaw) + lz * Math.sin(yaw), c.y + y1, c.z - x1 * Math.sin(yaw) + lz * Math.cos(yaw))); } return pts; };
   cr.a.set(mk(R, 0, 0), w); cr.b.set(mk(R * 0.97, -R * 0.015, 0.05), w * 0.45); cr.c.set(mk(R * 0.88, -R * 0.09, -0.15), w * 0.55);
@@ -387,7 +390,7 @@ function updateFx(t, tvid) {
   if (t >= 7.8 && t < T.clash + 0.1) {
     const g = smooth(clamp((t - 7.8) / 2.8)); const launched = t >= T.launch; const zc = launched ? 5 - (t - T.launch) * 5.4 : 5;
     const R = 0, span = 0;
-    crescentFx(0, V3(0, lerp(37, 47, g), zc), lerp(4, 30, Math.pow(g, 0.8)), lerp(0.5, 1.25, g), 0.3 + 3.0 * g, 0.03 * Math.sin(t), 0);
+    crescentFx(0, V3(0, 35.5 + 1.0 * g, zc), lerp(4, 30, Math.pow(g, 0.8)), lerp(0.6, 1.15, g), 0.3 + 2.6 * g, 0.2 * Math.sin(t * 2), 0, 0xff2a40, true);
     if (!launched) { const f = handW(Y, 'R'); for (let b = 0; b < 4; b++) bolts.bolt(f, f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).multiplyScalar(2.2)), { n: 3, jit: .15, w: 0.05, color: 0xff2a40, seed: frame * 7 + b }); }
     shakeAmp = Math.max(shakeAmp, 0.08 + 0.1 * g);
   }
@@ -442,9 +445,9 @@ function updateFx(t, tvid) {
   // 斬撃(shellを割る / 腕を断つ)
   const slash = (tt, a, b, w, col, dur) => { const d = t - tt; if (d < 0 || d > dur) return; const k = d / dur; const gr = clamp(d / 0.06); const e = a.clone().lerp(b, gr); const ww = w * Math.pow(1 - k, 1.4) * (0.4 + 0.6 * gr); bolts.seg(a, e, ww * 2.6, col); bolts.seg(a, e, ww, 0xffffff); flashW = Math.max(flashW, d < 0.06 ? 0.3 : 0); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - k)); };
   const cres = (idx, tt, dur, c0, R, span, w, tilt, yaw, speed, dirz = -1) => { const d = t - tt; if (d < 0 || d > dur) return; const k = d / dur; const grow = clamp(d / 0.07); const ww = w * (0.35 + 0.65 * grow) * Math.pow(1 - k, 1.2);
-    crescentFx(idx, V3(c0.x, c0.y, c0.z + dirz * speed * d), R * (0.7 + 0.3 * grow), span, ww, tilt, yaw); flashW = Math.max(flashW, d < 0.07 ? 0.25 : 0); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - k)); };
-  cres(1, T.cut, 0.7, V3(0, 6, 5), 16, 0.95, 0.9, -0.45, 0, 34);
-  cres(2, T.slash2, 0.6, V3(0, 1.3, 3.2), 8, 0.95, 0.5, 0.22, 0, 26); cres(3, T.slash2 + 0.06, 0.55, V3(0, 1.8, 3.0), 6.5, 0.9, 0.38, -0.4, 0, 26);
+    crescentFx(idx, V3(c0.x, c0.y, c0.z + dirz * speed * d), R * (0.7 + 0.3 * grow), span, ww, tilt, yaw, 0xff2a40, true); flashW = Math.max(flashW, d < 0.07 ? 0.25 : 0); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - k)); };
+  cres(1, T.cut, 0.7, V3(0, 2.6, 5), 16, 1.0, 0.8, 0, 0, 34);
+  cres(2, T.slash2, 0.6, V3(0, 1.4, 3.2), 8, 1.0, 0.45, 0, 0, 26); cres(3, T.slash2 + 0.06, 0.55, V3(0, 1.9, 3.0), 6.5, 1.0, 0.34, 0.3, 0, 26);
   // 黒閃×5
   T.bf.forEach((tb, i) => { const d = t - tb; if (d < 0 || d > 1.1) return; const pos = bodyOf(G, 0.35); const big = [1.0, 1.05, 1.15, 1.3, 1.55][i]; bfD = d; bfPos.copy(pos);
     const r = (0.25 + 1.2 * easeOut(clamp(d / 0.3))) * big, op = 1 - smooth(clamp((d - 0.3) / 0.6)); bfBlack.position.copy(pos); bfBlack.scale.setScalar(r); bfBlack.material.opacity = op * 0.92; bfBlack.visible = true; bfRed.position.copy(pos); bfRed.scale.setScalar(r * 1.1); bfRed.material.opacity = op; bfRed.visible = true;
@@ -501,7 +504,7 @@ function shot(t, tvid) {
   else if (t < 9.4) { p = V(kf(t, [[7.6, [3, 33.8, 16]], [9.4, [2.2, 33.6, 12.5]]], lin)); l = V3(0, 34.8, -4); fov = 52; sh = 0.03; roll = 0.08; }
   else if (t < 9.9) { p = V(kf(t, [[9.4, [-3, 35.6, -15]], [9.9, [-2.6, 35.3, -12]]], lin)); l = V3(0, 34.6, -2); fov = 50; sh = 0.05; roll = -0.08; }
   else if (t < 10.6) { p = V(kf(t, [[9.9, [-4.2, 35.4, -9.5]], [10.6, [-3.2, 35.2, -8.6]]], lin)); l = V3(0, 34.6, -5); fov = 40; sh = 0.06; roll = -0.1; }
-  else if (t < 11.6) { p = V(kf(t, [[10.6, [0, 34, 40]], [11.6, [0, 35, 33]]], lin)); l = V(kf(t, [[10.6, [0, 40, -6]], [11.6, [0, 38, -2]]], lin)); fov = 90; sh = 0.12; }
+  else if (t < 11.6) { p = V(kf(t, [[10.6, [0, 54, 46]], [11.6, [0, 49, 38]]], lin)); l = V(kf(t, [[10.6, [0, 34, -2]], [11.6, [0, 34, -2]]], lin)); fov = 68; sh = 0.12; }
   else if (t < 12.4) { p = V(kf(t, [[11.6, [17, 36, 6]], [12.4, [14, 35.5, 6]]], lin)); l = V3(0, 34, 0); fov = 50; sh = 0.15; roll = 0.1; }
   else if (t < 13.9) { p = V(kf(t, [[12.4, [10, 30, 4]], [13.9, [7, 4, 5]]], lin)); l = V(kf(t, [[12.4, [0, 34, 0]], [13.9, [0, 3, -1]]], lin)); fov = 58; sh = 0.1; roll = -0.1; }
   else if (t < 14.5) { p = V3(9, 1.6, 8); l = V3(0, 1.3, -1); fov = 56; sh = 0.2 * (14.5 - t); }
@@ -511,9 +514,9 @@ function shot(t, tvid) {
   else if (t < 17.6) { p = V(kf(t, [[16.9, [10, 3.2, 1]], [17.6, [11, 3.6, 0.5]]], lin)); l = V3(0, 1.0, 0); fov = 52; sh = 0.01; }
   else if (t < 19.0) { p = orbit(V3(0, 0, 0), 18, 4.5, 0, 1.9, t, 17.6, 19.0); l = V3(0, 3, 0); fov = 56; sh = 0.1; roll = 0.1; }
   else if (t < 20.5) { p = V3(0, 48, 0.01); l = V3(0, 0, 0); up = UPZ.clone(); fov = 52; sh = 0.06; }
-  else if (t < 21.2) { p = V3(22, 8, 6); l = V3(0, 4, -2); fov = 54; sh = 0.3; roll = 0.1; }
+  else if (t < 21.2) { p = V3(3, 10, 17); l = V3(0, 2.5, -4); fov = 60; sh = 0.3; roll = 0.06; }
   else if (t < 22.0) { p = V(kf(t, [[21.2, [2.6, 1.7, 0.2]], [22.0, [3.4, 1.7, 1.4]]], lin)); l = V3(0, 1.4, -3.6); fov = 48; sh = 0.03; }
-  else if (t < 22.7) { const as = armState(t); p = V(kf(t, [[22.0, [4.5, 1.9, -0.5]], [22.7, [-3.4, 2.8, -1.8]]], lin)); l = as ? as.p.clone() : gb.clone(); fov = 46; sh = 0.1; roll = 0.12; }
+  else if (t < 22.7) { const as = armState(t); p = V(kf(t, [[22.0, [2.5, 4.2, 5.5]], [22.7, [-2.6, 3.8, 0.8]]], lin)); l = as ? as.p.clone() : gb.clone(); fov = 50; sh = 0.1; roll = 0.1; }
   else if (t < 23.4) { p = V(kf(t, [[22.7, [2.8, 1.9, 0.0]], [23.4, [3.2, 1.6, -0.2]]], lin)); l = gh.clone().add(V3(0, -0.2, 0)); fov = 42; sh = 0.08; }
   else if (t < 24.1) { p = V3(4.8, 1.8, mz + 0.4); l = V3(0, 1.5, mz); fov = 50; sh = 0.2; roll = 0.06; }
   else if (t < 24.8) { p = yp.clone().add(V3(0.9, 0.9, 2.3)); l = gb.clone(); fov = 52; sh = 0.2; roll = -0.1; }
