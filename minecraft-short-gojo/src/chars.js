@@ -283,7 +283,7 @@ export function setRika(R, s) {
 const clamp01 = x => Math.min(1, Math.max(0, x));
 
 // ================= 五条悟(社長のスキン画像を再現: 白い冠の髪+黒い目隠し+暗い青紫の高襟ジャケット) =================
-const GSKIN = '#f0c4a8';
+const GSKIN = '#fafce5', GSKIN2 = '#eeefd8';
 const mottle = (x, w, h, pal, seed, vert = 0.55) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const r = rnd2(i * 3.7 + seed) * vert + rnd2(i * 7.3 + j * 13.1 + seed * 1.7) * (1 - vert); dot(x, pal[Math.min(pal.length - 1, Math.floor(r * pal.length))], i, j); } };
 const rnd2 = s => { const v = Math.sin(s * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
 const PURP = ['#1c1830', '#241f3a', '#2f2744', '#3b3150', '#4a3d66', '#5a4a7c', '#6a5a8a'];
@@ -299,9 +299,9 @@ const gojoPaint = {
       mottle(x, w, 3, BLINDP, 64, 0.3); // 目隠し(上段から3行目を上書き)
       x.save(); x.restore();
       for (let j = 3; j < 6; j++) for (let i = 0; i < w; i++) dot(x, BLINDP[Math.floor(rnd2(i * 5.1 + j * 9.7 + 64) * 4)], i, j);
-      dot(x, '#c8a090', 3, 6); dot(x, '#d8a890', 4, 6); dot(x, '#b87068', 3, 7, 2, 1); dot(x, '#f0c4a8', 0, 6, 3, 2); dot(x, '#f0c4a8', 5, 6, 3, 2); dot(x, '#e0b098', 3, 6, 2, 1);
-    } else if (f === 'back') { mottle(x, w, 6, HAIRP, 65, 0.5); for (let j = 3; j < 6; j++) for (let i = 0; i < w; i++) dot(x, BLINDP[Math.floor(rnd2(i * 5.1 + j * 9.7 + 66) * 4)], i, j); dot(x, '#f0c4a8', 0, 6, w, 2); }
-    else { mottle(x, w, 3, HAIRP, 67, 0.3); for (let j = 3; j < 6; j++) for (let i = 0; i < w; i++) dot(x, BLINDP[Math.floor(rnd2(i * 5.1 + j * 9.7 + 68) * 4)], i, j); dot(x, '#f0c4a8', 0, 6, w, 2); dot(x, '#e0b098', 3, 6, 2, 1); }
+      dot(x, GSKIN, 0, 6, w, 2); dot(x, GSKIN2, 0, 7, w, 1); dot(x, '#e2dcc4', 3, 7, 2, 1); dot(x, GSKIN2, 3, 6); dot(x, GSKIN2, 4, 6);
+    } else if (f === 'back') { mottle(x, w, 6, HAIRP, 65, 0.5); for (let j = 3; j < 6; j++) for (let i = 0; i < w; i++) dot(x, BLINDP[Math.floor(rnd2(i * 5.1 + j * 9.7 + 66) * 4)], i, j); dot(x, GSKIN, 0, 6, w, 2); dot(x, GSKIN2, 0, 7, w, 1); }
+    else { mottle(x, w, 3, HAIRP, 67, 0.3); for (let j = 3; j < 6; j++) for (let i = 0; i < w; i++) dot(x, BLINDP[Math.floor(rnd2(i * 5.1 + j * 9.7 + 68) * 4)], i, j); dot(x, GSKIN, 0, 6, w, 2); dot(x, GSKIN2, 0, 7, w, 1); dot(x, GSKIN2, 3, 6, 2, 1); }
   },
   body(f, x, w, h) {
     mottle(x, w, h, PURP, 71, 0.5);
@@ -309,7 +309,7 @@ const gojoPaint = {
     else if (f === 'back') { dot(x, '#1c1830', 0, 0, w, 2); }
     else { dot(x, '#1c1830', 0, 0, w, 1); }
   },
-  arm(f, x, w, h) { mottle(x, w, h, PURP, 72, 0.6); dot(x, '#1c1830', 0, 0, w, 1); dot(x, '#15122a', 0, 10, w, 1); dot(x, GSKIN, 0, 11, w, 1); dot(x, '#d8a890', 0, 11, 1, 1); },
+  arm(f, x, w, h) { mottle(x, w, h, PURP, 72, 0.6); dot(x, '#1c1830', 0, 0, w, 1); dot(x, '#15122a', 0, 10, w, 1); dot(x, GSKIN, 0, 11, w, 1); dot(x, GSKIN2, 0, 11, 1, 1); },
   leg(f, x, w, h) { mottle(x, w, h, PURP, 73, 0.6); dot(x, '#15122a', 0, 10, w, 2); dot(x, '#1e1a28', 0, 11, w, 1); },
 };
 export function makeGojo(scene) {
@@ -324,6 +324,10 @@ export function makeGojo(scene) {
   [[-3.3, -3.1, 1.0], [-1.4, -3.5, 1.0], [0.5, -3.7, 1.7], [2.5, -3.2, 1.0], [3.6, -1.4, 1.0], [-3.6, -0.7, 1.0], [3.4, 1.6, 1.0]].forEach(([x, z, hgt]) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(1.7 * PX, hgt * PX, 1.7 * PX), sm); m.position.set(x * PX, (4.3 + hgt / 2 - 0.05) * PX, z * PX); C.head.add(m); });
   C.mats.slice(0, -1).forEach((m, i) => m.emissive.set(i >= 6 && i < 12 ? 0x12101a : 0x30264a));
+  // 肌(顔の下側・手首)だけを光らせて、夜でも淡いクリーム色に見せる(髪・目隠し・服はそのまま)
+  const DIM = { left: [8, 8], right: [8, 8], top: [8, 8], bottom: [8, 8], front: [8, 8], back: [8, 8] };
+  FACES.forEach((f, k) => { const m = C.mats[6 + k]; if (f === 'top' || f === 'bottom') return; m.emissive.set(0xffffff); m.emissiveMap = tex(8, 8, (x) => { x.fillStyle = '#12101a'; x.fillRect(0, 0, 8, 8); x.fillStyle = '#b4b49a'; x.fillRect(0, 6, 8, 2); }); });
+  [12, 18].forEach(base => FACES.forEach((f, k) => { const m = C.mats[base + k]; if (f === 'top' || f === 'bottom') return; const dw = (f === 'front' || f === 'back') ? 4 : 4; m.emissive.set(0xffffff); m.emissiveMap = tex(dw, 12, (x) => { x.fillStyle = '#30264a'; x.fillRect(0, 0, dw, 12); x.fillStyle = '#b4b49a'; x.fillRect(0, 11, dw, 1); }); }));
   C.paint = gojoPaint; return C;
 }
 // 腕だけの別体(切断された腕など)
@@ -338,7 +342,7 @@ export function addWhiteEyes(C) {
 export function addHands(C) {
   const mk = (sx) => {
     const grp = new THREE.Group(); grp.position.y = -12 * PX; grp.visible = false; grp.scale.setScalar(1.9);
-    const skin = new THREE.MeshLambertMaterial({ color: 0xffd8b8, emissive: 0x4a3a30 }); const box = (w, h, d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w * PX, h * PX, d * PX), skin); return m; };
+    const skin = new THREE.MeshLambertMaterial({ color: 0xfafce5, emissive: 0x4a4a3c }); const box = (w, h, d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w * PX, h * PX, d * PX), skin); return m; };
     const palm = box(3.8, 3.2, 2.4); palm.position.y = -1.6 * PX; grp.add(palm);
     const fingers = []; for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((-1.4 + i * 0.95) * PX, -3.2 * PX, 0); const b = box(1.0, 4.6, 1.0); b.position.y = -2.3 * PX; f.add(b); grp.add(f); fingers.push(f); }
     const th = new THREE.Group(); th.position.set(sx * 1.8 * PX, -1.2 * PX, 0.4 * PX); const tb = box(0.9, 3, 0.9); tb.position.y = -1.5 * PX; th.add(tb); grp.add(th);
