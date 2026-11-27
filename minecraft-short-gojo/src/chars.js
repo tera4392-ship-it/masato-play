@@ -282,32 +282,43 @@ export function setRika(R, s) {
 }
 const clamp01 = x => Math.min(1, Math.max(0, x));
 
-// ================= 五条悟 =================
-const GSKIN = '#f2d0b8', GHAIR = '#f6f6fc', GHAIR2 = '#dcdcec', GBLK = '#16161c';
+// ================= 五条悟(社長のスキン画像を再現: 白い冠の髪+黒い目隠し+暗い青紫の高襟ジャケット) =================
+const GSKIN = '#f0c4a8';
+const mottle = (x, w, h, pal, seed, vert = 0.55) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const r = rnd2(i * 3.7 + seed) * vert + rnd2(i * 7.3 + j * 13.1 + seed * 1.7) * (1 - vert); dot(x, pal[Math.min(pal.length - 1, Math.floor(r * pal.length))], i, j); } };
+const rnd2 = s => { const v = Math.sin(s * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+const PURP = ['#1c1830', '#241f3a', '#2f2744', '#3b3150', '#4a3d66', '#5a4a7c', '#6a5a8a'];
+const HAIRP = ['#8f8da0', '#a9a7b8', '#c4c2d2', '#d8d8e6', '#e8e8f4'];
+const BLINDP = ['#1a1a20', '#22222a', '#2a2a32', '#33333c'];
 const gojoPaint = {
   head(f, x, w, h) {
     dot(x, GSKIN, 0, 0, w, h);
-    if (f === 'top') noise(x, w, h, GHAIR, 0.06, 51);
+    if (f === 'top') { mottle(x, w, h, HAIRP, 61, 0.2); }
     else if (f === 'front') {
-      noise(x, w, 2, GHAIR, 0.06, 52); dot(x, GHAIR, 0, 2); dot(x, GHAIR2, 1, 2); dot(x, GHAIR, 3, 2); dot(x, GHAIR, 4, 2); dot(x, GHAIR2, 6, 2); dot(x, GHAIR, 7, 2);
-      dot(x, '#c8c8dc', 1, 3, 2, 1); dot(x, '#c8c8dc', 5, 3, 2, 1);
-      dot(x, '#ffffff', 1, 4, 2, 2); dot(x, '#ffffff', 5, 4, 2, 2); dot(x, '#37c8ff', 2, 4, 1, 2); dot(x, '#37c8ff', 5, 4, 1, 2); dot(x, '#b8f0ff', 2, 4); dot(x, '#b8f0ff', 5, 4); // 六眼
-      dot(x, '#c89080', 3, 6, 2, 1);
-    } else if (f === 'back') noise(x, w, 6, GHAIR, 0.06, 53);
-    else { noise(x, w, 3, GHAIR, 0.06, 54); dot(x, GHAIR2, 0, 3); dot(x, GHAIR2, w - 1, 3); dot(x, '#e0b8a0', 3, 4, 1, 2); }
+      mottle(x, w, 2, HAIRP, 62, 0.6); dot(x, '#e8e8f4', 1, 0); dot(x, '#e8e8f4', 3, 0); dot(x, '#e8e8f4', 4, 0); dot(x, '#e8e8f4', 6, 0); dot(x, '#8f8da0', 2, 0); dot(x, '#8f8da0', 5, 0);
+      mottle(x, w, 1, HAIRP.slice(0, 3), 63, 0.3); x.fillStyle = '#a9a7b8'; x.fillRect(0, 2, w, 1); dot(x, '#c4c2d2', 3, 2, 2, 1);
+      mottle(x, w, 3, BLINDP, 64, 0.3); // 目隠し(上段から3行目を上書き)
+      x.save(); x.restore();
+      for (let j = 3; j < 6; j++) for (let i = 0; i < w; i++) dot(x, BLINDP[Math.floor(rnd2(i * 5.1 + j * 9.7 + 64) * 4)], i, j);
+      dot(x, '#c8a090', 3, 6); dot(x, '#d8a890', 4, 6); dot(x, '#b87068', 3, 7, 2, 1); dot(x, '#f0c4a8', 0, 6, 3, 2); dot(x, '#f0c4a8', 5, 6, 3, 2); dot(x, '#e0b098', 3, 6, 2, 1);
+    } else if (f === 'back') { mottle(x, w, 6, HAIRP, 65, 0.5); for (let j = 3; j < 6; j++) for (let i = 0; i < w; i++) dot(x, BLINDP[Math.floor(rnd2(i * 5.1 + j * 9.7 + 66) * 4)], i, j); dot(x, '#f0c4a8', 0, 6, w, 2); }
+    else { mottle(x, w, 3, HAIRP, 67, 0.3); for (let j = 3; j < 6; j++) for (let i = 0; i < w; i++) dot(x, BLINDP[Math.floor(rnd2(i * 5.1 + j * 9.7 + 68) * 4)], i, j); dot(x, '#f0c4a8', 0, 6, w, 2); dot(x, '#e0b098', 3, 6, 2, 1); }
   },
   body(f, x, w, h) {
-    noise(x, w, h, GBLK, 0.05, 55);
-    if (f === 'front') { dot(x, '#2a2a34', 0, 0, w, 2); dot(x, GSKIN, 3, 0, 2, 1); dot(x, '#4a4a58', 3, 1, 2, 11); dot(x, '#d8d8e8', 3, 2); dot(x, '#2a2a34', 0, 10, w, 2); dot(x, '#c0a050', 3, 10, 2, 1); }
-    else dot(x, '#2a2a34', 0, 0, w, 2);
+    mottle(x, w, h, PURP, 71, 0.5);
+    if (f === 'front') { dot(x, '#1c1830', 0, 0, w, 2); dot(x, '#2f2744', 1, 1, w - 2, 1); dot(x, '#15122a', 3, 1, 1, 11); dot(x, '#7a6a9a', 4, 2, 1, 10); dot(x, '#15122a', 0, 11, w, 1); }
+    else if (f === 'back') { dot(x, '#1c1830', 0, 0, w, 2); }
+    else { dot(x, '#1c1830', 0, 0, w, 1); }
   },
-  arm(f, x, w, h) { noise(x, w, h, GBLK, 0.05, 56); dot(x, '#2a2a34', 0, 8, w, 1); dot(x, GSKIN, 0, 11, w, 1); },
-  leg(f, x, w, h) { noise(x, w, h, '#14141c', 0.05, 57); dot(x, '#2a2a34', 0, 10, w, 2); dot(x, '#d8d8e8', 0, 11, w, 1); },
+  arm(f, x, w, h) { mottle(x, w, h, PURP, 72, 0.6); dot(x, '#1c1830', 0, 0, w, 1); dot(x, '#15122a', 0, 10, w, 1); dot(x, GSKIN, 0, 11, w, 1); dot(x, '#d8a890', 0, 11, 1, 1); },
+  leg(f, x, w, h) { mottle(x, w, h, PURP, 73, 0.6); dot(x, '#15122a', 0, 10, w, 2); dot(x, '#1e1a28', 0, 11, w, 1); },
 };
 export function makeGojo(scene) {
   const C = makeChar(gojoPaint, scene);
-  const hm = new THREE.MeshLambertMaterial({ color: 0xf6f6fc }); C.mats.push(hm);
-  [[-2.6, 3.4, 0.3], [0, 4.2, 0.0], [2.6, 3.4, -0.3], [-1.2, 3.8, -2.2], [1.2, 3.8, -2.2]].forEach(([x, h, rz]) => { const m = new THREE.Mesh(new THREE.BoxGeometry(1.8 * PX, h * PX, 1.8 * PX), hm); m.position.set(x * PX, (4 + h / 2 + 1.2) * PX, (x === 0 ? 0 : (rz !== 0 ? 0.5 : -1.5)) * PX); m.rotation.z = rz; C.head.add(m); });
+  // 髪: 上端がギザギザの冠(白〜薄灰色の尖り)
+  const hm = [new THREE.MeshLambertMaterial({ color: 0xf2f2fa, emissive: 0x4a4a5c }), new THREE.MeshLambertMaterial({ color: 0xd2d0e0, emissive: 0x3a3a4c }), new THREE.MeshLambertMaterial({ color: 0xe4e4f0, emissive: 0x444456 })]; hm.forEach(m => C.mats.push(m));
+  [[-3.1, 3.6, 0.1, 0], [-1.5, 4.6, -0.05, 1], [0.1, 5.4, 0, 2], [1.7, 4.4, 0.05, 0], [3.1, 3.4, -0.1, 1], [-2.2, 3.0, -2.2, 2], [0.4, 3.4, -2.6, 0], [2.4, 3.0, -2.2, 1]].forEach(([x, hgt, rz, k], n) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.9 * PX, hgt * PX, 1.9 * PX), hm[k]); m.position.set(x * PX, (4 + hgt / 2 - 0.2) * PX, (n < 5 ? 0.5 : -2.5) * PX); m.rotation.z = rz; C.head.add(m); });
+  C.mats.slice(0, -3).forEach((m, i) => m.emissive.set(i >= 6 && i < 12 ? 0x12101a : 0x30264a)); // 夜でも服が青紫に見えるよう底上げ
   C.paint = gojoPaint; return C;
 }
 // 腕だけの別体(切断された腕など)

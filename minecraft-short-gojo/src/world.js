@@ -95,7 +95,7 @@ export function buildWorld(scene) {
     // 屋上の舞台(五条側・虎杖側): 平らな屋上、ガラスのビル
     for (const sz of [-1, 1]) { tower(0, sz * 34, 18, 18, 30, 'glass', sz > 0 ? 71 : 72, { flat: true, faces: [[0, -sz]] }); }
     const ROOF = 30;
-    for (const sz of [-1, 1]) { const zc = sz * 34; box(g, 18.4, 1.0, 0.5, 0, ROOF, zc - sz * 8.7, lam(0x2a2c38)); box(g, 18.4, 1.0, 0.5, 0, ROOF, zc + sz * 8.7, lam(0x2a2c38)); box(g, 0.5, 1.0, 18.4, -8.7, ROOF, zc, lam(0x2a2c38)); box(g, 0.5, 1.0, 18.4, 8.7, ROOF, zc, lam(0x2a2c38));
+    for (const sz of [-1, 1]) { const zc = sz * 34; box(g, 18.4, 0.4, 0.5, 0, ROOF, zc - sz * 8.7, lam(0x2a2c38)); box(g, 18.4, 0.4, 0.5, 0, ROOF, zc + sz * 8.7, lam(0x2a2c38)); box(g, 0.5, 0.4, 18.4, -8.7, ROOF, zc, lam(0x2a2c38)); box(g, 0.5, 0.4, 18.4, 8.7, ROOF, zc, lam(0x2a2c38));
       box(g, 3, 1.8, 2.2, -5.5, ROOF, zc + sz * 4, lam(0x6a6c78)); box(g, 3, 1.8, 2.2, 5.5, ROOF, zc + sz * 5, lam(0x6a6c78)); box(g, 2.6, 4, 2.6, 6.5, ROOF, zc + sz * 1, lam(0x3a3c48)); box(g, 0.2, 7, 0.2, -6, ROOF, zc + sz * 6, lam(0x8a8c98));
       box(g, 18.6, 0.4, 18.6, 0, ROOF - 0.1, zc, lam(0x23252f)); }
     // 四隅のブロックに高層ビル群を敷き詰める
