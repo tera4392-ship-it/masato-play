@@ -314,11 +314,20 @@ const gojoPaint = {
 };
 export function makeGojo(scene) {
   const C = makeChar(gojoPaint, scene);
-  // 髪: 上端がギザギザの冠(白〜薄灰色の尖り)
-  const hm = [new THREE.MeshLambertMaterial({ color: 0xf2f2fa, emissive: 0x4a4a5c }), new THREE.MeshLambertMaterial({ color: 0xd2d0e0, emissive: 0x3a3a4c }), new THREE.MeshLambertMaterial({ color: 0xe4e4f0, emissive: 0x444456 })]; hm.forEach(m => C.mats.push(m));
-  [[-3.1, 3.6, 0.1, 0], [-1.5, 4.6, -0.05, 1], [0.1, 5.4, 0, 2], [1.7, 4.4, 0.05, 0], [3.1, 3.4, -0.1, 1], [-2.2, 3.0, -2.2, 2], [0.4, 3.4, -2.6, 0], [2.4, 3.0, -2.2, 1]].forEach(([x, hgt, rz, k], n) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(1.9 * PX, hgt * PX, 1.9 * PX), hm[k]); m.position.set(x * PX, (4 + hgt / 2 - 0.2) * PX, (n < 5 ? 0.5 : -2.5) * PX); m.rotation.z = rz; C.head.add(m); });
-  C.mats.slice(0, -3).forEach((m, i) => m.emissive.set(i >= 6 && i < 12 ? 0x12101a : 0x30264a)); // 夜でも服が青紫に見えるよう底上げ
+  // 髪: 頭を包むふんわりした白い層(マイクラのスキンの外側レイヤー)+その上の段+前髪+後ろ髪+上の小さな房
+  const HP = ['#d8cfe8', '#e6def2', '#f0eaf8', '#f8f4fc', '#ffffff', '#f4e4f2'];
+  const hairPaint = (f, x, w, h) => { mottle(x, w, h, HP, 81, 0.65); if (f === 'top') mottle(x, w, h, HP, 82, 0.2); };
+  const hmats = []; const hp = (a, b, c, px, py, pz) => { const m = part(a, b, c, hairPaint, false, hmats); m.position.set(px * PX, py * PX, pz * PX); C.head.add(m); return m; };
+  hp(9, 3, 9, 0, 2.6, 0);          // 頭を覆う外側の層(上3段)
+  hp(8, 1, 8, 0, 4.6, 0.0);        // その上の段
+  hp(5, 1, 5, 0.2, 5.6, -0.3);     // さらに上の小さな段
+  hp(3, 2, 1, -2.8, 1.4, 4.9).rotation.x = -0.25; hp(3, 2, 1, 0, 1.5, 5.0).rotation.x = -0.3; hp(3, 2, 1, 2.8, 1.4, 4.9).rotation.x = -0.25; // 額の前髪
+  hp(9, 4, 1, 0, 0.5, -4.9);       // 後ろ髪(首の近くまで)
+  hp(1, 3, 6, -4.9, 1.2, 0); hp(1, 3, 6, 4.9, 1.2, 0); // 側頭部の髪
+  const tm = [0xf4f0fa, 0xe6def2, 0xffffff].map(c => new THREE.MeshLambertMaterial({ color: c, emissive: 0x7a768a })); tm.forEach(m => C.mats.push(m));
+  [[-2.8, 6.4, 0.6, 0.12], [-0.8, 7.0, -0.8, -0.05], [1.8, 6.6, 0.8, 0.1], [3.0, 6.2, -0.6, -0.14], [0.2, 6.9, 1.8, 0.02]].forEach(([x, y, z, rz], n) => { const m = new THREE.Mesh(new THREE.BoxGeometry(2.0 * PX, 2.6 * PX, 2.0 * PX), tm[n % 3]); m.position.set(x * PX, y * PX, z * PX); m.rotation.z = rz; C.head.add(m); }); // 上の房
+  hmats.forEach(m => { m.emissive.set(0x8a869a); });
+  C.mats.slice(0, -3).forEach((m, i) => m.emissive.set(i >= 6 && i < 12 ? 0x12101a : 0x30264a));
   C.paint = gojoPaint; return C;
 }
 // 腕だけの別体(切断された腕など)
