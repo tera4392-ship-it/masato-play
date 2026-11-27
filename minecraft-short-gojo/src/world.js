@@ -64,8 +64,8 @@ export function buildWorld(scene) {
     const placeSide = (x0, sx, off) => { for (let i = -3; i <= 3; i++) { const h = 24 + rnd(i * 4.1 + off) * 50; const d = 14 + rnd(i + off) * 8; const bx = x0 + sx * d / 2; building(g, bx, i * 18 - 0, d, 16, h, off + i * 3); } };
     placeSide(-24, -1, 31); placeSide(24, 1, 41);
     // 大型ビジョン(動画のように色が変わる)と109風の円筒ビル
-    W.anim.screens = []; for (const [x, z, ry, w, h] of [[-23.4, -4, PI / 2, 14, 18], [23.4, 6, -PI / 2, 12, 16]]) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), bas(0xff3a9a)); m.position.set(x, 16 + h / 2, z); m.rotation.y = ry; g.add(m); W.anim.screens.push(m); }
+    W.anim.screens = []; for (const [x, z, ry, w, h] of []) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), bas(0xff3a9a)); m.position.set(x, 5 + h / 2, z); m.rotation.y = ry; g.add(m); W.anim.screens.push(m); }
     const cyl = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 48, 16), new THREE.MeshLambertMaterial({ color: 0xc86a8a, emissive: 0x4a1a2a })); cyl.position.set(-34, 24, 14); g.add(cyl);
     for (let k = 0; k < 6; k++) { const r = new THREE.Mesh(new THREE.TorusGeometry(7.2, 0.35, 6, 20), bas(k % 2 ? 0xff6aaa : 0xffd0e0)); r.rotation.x = PI / 2; r.position.set(-34, 6 + k * 7, 14); g.add(r); }
     // 信号・街灯・車

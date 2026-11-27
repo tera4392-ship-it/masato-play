@@ -188,8 +188,7 @@ function updateParts(t) {
 const GOLD = [0xffe070, 0xfff6c0, 0xffffff, 0xffc030], GLASS = [0xdde8ff, 0xffffff, 0x9ad0ff, 0xa060ff];
 burst(T.jump, [0, 30, -28], 70, { speed: 8, up: 5, life: 1.8, size: 0.7, g: 9, cols: [0x6a6c78, 0x3a3c48, 0x8a8c98], seed: 1 });
 burst(T.jump, [0, 30, 28], 70, { speed: 8, up: 5, life: 1.8, size: 0.7, g: 9, cols: [0x6a6c78, 0x3a3c48, 0x8a8c98], seed: 2 });
-burst(T.clash, [0, 34, -0.4], 340, { speed: 24, up: 4, life: 3.4, size: 0.8, g: 5, cols: [0xffa040, 0xffe070, 0xffffff, 0x9a40ff, 0xff6aa0], seed: 3, ground: false });
-burst(T.clash, [0, 34, -0.4], 220, { speed: 30, up: 0, life: 3.0, size: 0.5, g: 8, cols: GLASS, seed: 4, ground: false });
+burst(T.clash, [0, 34, -0.4], 90, { speed: 30, up: 0, life: 3.0, size: 0.35, g: 8, cols: GLASS, seed: 4, ground: false });
 burst(T.land, [0, 0.2, -4], 70, { speed: 8, up: 4, life: 1.4, size: 0.5, g: 9, cols: [0x5a5c68, 0x3a3c48, 0x8a8c98], seed: 5 });
 burst(T.land, [0, 0.2, 4], 70, { speed: 8, up: 4, life: 1.4, size: 0.5, g: 9, cols: [0x5a5c68, 0x3a3c48, 0x8a8c98], seed: 6 });
 burst(T.shatter, [0, 6, -4], 240, { speed: 15, up: 5, life: 2.4, size: 0.9, g: 8, cols: [0x3a5aff, 0x9ad0ff, 0xffffff, 0x101030], seed: 7, ground: false });
@@ -204,6 +203,7 @@ burst(T.whiteEyes - 0.2, [0, 0.2, 4.2], 50, { speed: 6, up: 3, life: 1.4, size: 
 burst(T.kneel, [0, 0.2, 4.2], 40, { speed: 4, up: 2, life: 1.4, size: 0.3, g: 9, cols: [0x5a5c68, 0x8a8c98], seed: 62 });
 for (let k = 0; k < 14; k++) burst(T.interior + k * 0.65, [(rnd(k) - 0.5) * 18, 0.4, (rnd(k * 2) - 0.5) * 22], 8, { speed: 0.6, up: 4, life: 2.5, size: 0.3, g: -0.3, cols: [0x000000, 0x1a0010], seed: 70 + k, ground: false, spread: 6 });
 
+
 // 領域の殻(外から見る衝突) / 技の球
 function shell(col, wire) {
   const g = new THREE.Group();
@@ -213,12 +213,75 @@ function shell(col, wire) {
 }
 const shA = shell(0x101a60, 0xaad0ff), shB = shell(0xff5a20, 0xffd060), shF = shell(0xff2030, 0x000000);
 const ball = (c) => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), bas(c, { transparent: true })); m.visible = false; scene.add(m); return m; };
-const purple = ball(0xa040ff), purpleSh = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), bas(0xff7ac0, { side: THREE.BackSide, transparent: true, opacity: 0.8 }));
-purpleSh.visible = false; scene.add(purpleSh); const blueO = ball(0x4aa8ff), redO = ball(0xff3a3a), boom = ball(0xffffff), boomC = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), bas(0xffa040, { side: THREE.BackSide, transparent: true })); boomC.visible = false; scene.add(boomC);
 const bfBlack = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0, transparent: true, depthWrite: false }));
 const bfRed = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff1030, side: THREE.BackSide, transparent: true, toneMapped: false, depthWrite: false }));
 bfBlack.visible = bfRed.visible = false; scene.add(bfBlack, bfRed);
 const blueFist = ball(0x4aa8ff);
+// ===== 滑らかな発光表現(ブロックを感じさせない): 球シェーダー / 尾のリボン / 光の輪 / 柔らかい粒子 =====
+function orbMesh(core, rim, swirl, additive = false) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 72, 54), new THREE.ShaderMaterial({
+    transparent: additive, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    uniforms: { time: { value: 0 }, a: { value: 1 }, core: { value: new THREE.Color(core) }, rim: { value: new THREE.Color(rim) }, swirl: { value: new THREE.Color(swirl) } },
+    vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader: 'uniform float time,a; uniform vec3 core,rim,swirl; varying vec3 vN; varying vec3 vP; void main(){ float f=pow(1.0-abs(vN.z),2.0); float s=0.5+0.5*sin(vP.y*9.0+time*6.0+2.0*sin(vP.x*7.0-time*4.0)+vP.z*5.0); float s2=0.5+0.5*sin(vP.x*13.0-time*9.0+vP.y*4.0); vec3 c=core+rim*f*1.8+swirl*s*f*0.9+swirl*s2*0.25*(0.3+f)+swirl*pow(f,4.0)*1.6; gl_FragColor=vec4(c*a, a);}',
+    toneMapped: false
+  }));
+  m.visible = false; scene.add(m); return m;
+}
+const haloTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); const g = x.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,0.55)'); g.addColorStop(0.6, 'rgba(255,255,255,0.12)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const halo = (col) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: col, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false })); sp.visible = false; scene.add(sp); return sp; };
+class Ribbon {
+  constructor(n, color, sym = false) { this.n = n; this.sym = sym; const g = new THREE.BufferGeometry(); this.pos = new Float32Array(n * 6); this.al = new Float32Array(n * 2);
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('a', new THREE.BufferAttribute(this.al, 1)); const idx = []; for (let i = 0; i < n - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx);
+    this.mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { c: { value: new THREE.Color(color) } },
+      vertexShader: 'attribute float a; varying float va; void main(){va=a; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', fragmentShader: 'uniform vec3 c; varying float va; void main(){gl_FragColor=vec4(c*va,va);}', toneMapped: false }));
+    this.mesh.frustumCulled = false; this.mesh.visible = false; scene.add(this.mesh); }
+  set(pts, w) { const n = this.n; this.mesh.visible = true; const cp = camera.position;
+    for (let i = 0; i < n; i++) { const p = pts[Math.min(i, pts.length - 1)], a = pts[Math.max(i - 1, 0)], b = pts[Math.min(i + 1, pts.length - 1)];
+      const f = this.sym ? Math.sin(Math.PI * i / (n - 1)) : 1 - i / (n - 1); const tg = b.clone().sub(a); const side = tg.cross(cp.clone().sub(p)).normalize().multiplyScalar(w * f);
+      this.pos.set([p.x + side.x, p.y + side.y, p.z + side.z, p.x - side.x, p.y - side.y, p.z - side.z], i * 6); this.al[i * 2] = this.al[i * 2 + 1] = f * f; }
+    this.mesh.geometry.attributes.position.needsUpdate = true; this.mesh.geometry.attributes.a.needsUpdate = true; }
+}
+// 光の輪(滑らかなリング)プール
+const RINGS = []; for (let i = 0; i < 14; i++) { const m = new THREE.Mesh(new THREE.RingGeometry(0.955, 1.0, 128), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); m.visible = false; scene.add(m); RINGS.push(m); }
+let ringI = 0;
+function ringFx(c, r, col, op, axis = 'z') { if (ringI >= RINGS.length || op <= 0.01) return; const m = RINGS[ringI++]; m.visible = true; m.position.copy(c); m.scale.setScalar(Math.max(r, 0.01)); m.material.color.set(col); m.material.opacity = op; m.rotation.set(axis === 'y' ? -PI / 2 : 0, 0, 0); }
+// 柔らかい粒子(丸く光る点。ブロックではない)
+const SOFT = [];
+function soft(t0, o, n, op = {}) {
+  const { speed = 6, life = 1.2, size = 0.35, cols = [0xffffff], seed = 1, tspan = 0, inward = 0, g = 0, spread = 0 } = op;
+  for (let i = 0; i < n; i++) { const r = k => rnd(seed * 57.3 + i * k); const a = r(1.7) * PI * 2, e = r(2.9) * 2 - 1; const dir = V3(Math.cos(a) * Math.sqrt(1 - e * e), e, Math.sin(a) * Math.sqrt(1 - e * e));
+    const c = Array.isArray(o) ? V3(...o) : o.clone(); let p0 = c.clone().add(V3((r(3.1) - .5) * spread, (r(4.3) - .5) * spread, (r(5.9) - .5) * spread)), v;
+    if (inward) { p0 = c.clone().addScaledVector(dir, inward); v = dir.clone().multiplyScalar(-inward / life); } else v = dir.multiplyScalar(speed * (0.3 + r(6.7)));
+    SOFT.push({ t0: t0 + (tspan ? r(7.9) * tspan : 0), life: life * (0.7 + r(8.3) * 0.6), p: p0, v, size: size * (0.5 + r(9.1)), col: new THREE.Color(cols[Math.floor(r(10.7) * cols.length)]), g }); }
+}
+const NS = 4200; const softGeo = new THREE.BufferGeometry(); const sPos = new Float32Array(NS * 3), sCol = new Float32Array(NS * 3), sSize = new Float32Array(NS);
+softGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3)); softGeo.setAttribute('color', new THREE.BufferAttribute(sCol, 3)); softGeo.setAttribute('size', new THREE.BufferAttribute(sSize, 1));
+const softMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, uniforms: { sc: { value: 800 } },
+  vertexShader: 'attribute vec3 color; attribute float size; uniform float sc; varying vec3 vC; void main(){ vC=color; vec4 mv=modelViewMatrix*vec4(position,1.0); gl_PointSize=size*sc/max(-mv.z,0.1); gl_Position=projectionMatrix*mv;}',
+  fragmentShader: 'varying vec3 vC; void main(){ float d=length(gl_PointCoord-0.5)*2.0; float a=smoothstep(1.0,0.0,d); a=a*a; gl_FragColor=vec4(vC*a,a);}' });
+const softPts = new THREE.Points(softGeo, softMat); softPts.frustumCulled = false; scene.add(softPts);
+function updateSoft(t) {
+  let n = 0; softMat.uniforms.sc.value = H / (2 * Math.tan(camera.fov * PI / 360));
+  for (const p of SOFT) { const tt = t - p.t0; if (tt < 0 || tt > p.life || n >= NS) continue; const k = tt / p.life; const f = Math.sin(Math.min(1, k * 1.0) * PI) * 0.8 + (1 - k) * 0.2;
+    sPos[n * 3] = p.v.x * tt + p.p.x; sPos[n * 3 + 1] = p.v.y * tt + p.p.y - 0.5 * p.g * tt * tt; sPos[n * 3 + 2] = p.v.z * tt + p.p.z; sCol[n * 3] = p.col.r * f; sCol[n * 3 + 1] = p.col.g * f; sCol[n * 3 + 2] = p.col.b * f; sSize[n] = p.size * (0.6 + 0.8 * f); n++; }
+  softGeo.setDrawRange(0, n); ['position', 'color', 'size'].forEach(k => (softGeo.attributes[k].needsUpdate = true));
+}
+let lensS = 0, lensC = V3(), lensR = 0.3;
+const lensSet = (pos, r, s) => { lensC.copy(pos); lensR = r; lensS = s; };
+const blueO = orbMesh(0x0a1a40, 0x3a8aff, 0x9ad8ff), redO = orbMesh(0x3a0608, 0xff3a30, 0xffa090), purple = orbMesh(0x07000f, 0xa040ff, 0xff70d0), fire = orbMesh(0xff8a30, 0xff5a20, 0xffc070, true);
+const haloB = halo(0x4a8aff), haloR = halo(0xff3a30), haloP = halo(0x9a40ff), haloE = halo(0xffb060);
+const ribB = new Ribbon(24, 0x6ab0ff), ribR = new Ribbon(24, 0xff5040), ribP = new Ribbon(28, 0x9a40ff);
+const ribC = new Ribbon(48, 0xff2a40, true), ribC2 = new Ribbon(48, 0xffffff, true);
+
+// 紫・激突まわりの粒子(柔らかい光の粒)
+soft(8.9, [0, 34.6, -5], 220, { inward: 4.2, life: 1.0, size: 0.28, cols: [0x6ab0ff, 0xff5040, 0xc070ff, 0xffffff], seed: 101, tspan: 0.95 });
+soft(9.95, [0, 34.6, -5], 220, { speed: 9, life: 1.1, size: 0.32, cols: [0xc070ff, 0xff70d0, 0xffffff, 0x7a30ff], seed: 102 });
+for (let k = 0; k < 18; k++) soft(T.launch + k * 0.056, [0, 34.6, -5 + k * 0.26], 12, { speed: 2.6, life: 1.3, size: 0.3, cols: [0xc070ff, 0xff70d0, 0x7a30ff], seed: 110 + k, spread: 1.2 });
+soft(T.clash, [0, 34, -0.4], 700, { speed: 34, life: 3.2, size: 0.8, cols: [0xffa040, 0xffe070, 0xffffff, 0xc070ff, 0xff70d0], seed: 120 });
+soft(T.clash, [0, 34, -0.4], 260, { speed: 12, life: 2.8, size: 1.4, cols: [0xff7a30, 0xffb060, 0xd0508a], seed: 121 });
+
+
 
 // ---------- 状態 ----------
 let flashW = 0, invert = 0, shakeAmp = 0, shockT = -9, shockPos = V3(), bfD = -1, bfPos = V3();
@@ -301,7 +364,7 @@ function sigils(t, frame) {
 }
 function updateFx(t, tvid) {
   bolts.begin(); flashW = 0; invert = 0; fxLight.intensity = 0; shakeAmp = 0; bfD = -1;
-  shA.visible = shB.visible = shF.visible = false; purple.visible = purpleSh.visible = blueO.visible = redO.visible = boom.visible = boomC.visible = bfBlack.visible = bfRed.visible = blueFist.visible = false;
+  shA.visible = shB.visible = shF.visible = false; [purple, blueO, redO, fire, haloB, haloR, haloP, haloE, ribB.mesh, ribR.mesh, ribP.mesh, ribC.mesh, ribC2.mesh].forEach(o => (o.visible = false)); ringI = 0; RINGS.forEach(r => (r.visible = false)); lensS = 0; bfBlack.visible = bfRed.visible = blueFist.visible = false;
   const frame = Math.floor(tvid * 24);
   const hit = (tt, dur = 0.5) => { const d = t - tt; return d >= 0 && d < dur ? d : -1; };
   // 屋上の亀裂・跳躍
@@ -310,25 +373,40 @@ function updateFx(t, tvid) {
   if (t >= 7.8 && t < T.clash + 0.1) {
     const g = smooth(clamp((t - 7.8) / 2.8)); const launched = t >= T.launch; const zc = launched ? 5 - (t - T.launch) * 5.4 : 5;
     const R = lerp(2.5, 14, g), span = lerp(0.35, 1.15, g);
-    crescent(V3(0, 37 + 3 * g, zc), R, span, 0.18 + 0.5 * g, 0xff2a40, frame * 3, frame);
+    { const cc = V3(0, 37 + 3 * g, zc); const pts = []; for (let i = 0; i <= 47; i++) { const ph = lerp(-span, span, i / 47); pts.push(V3(cc.x + R * Math.sin(ph), cc.y + R * (Math.cos(ph) - 1), cc.z + R * (1 - Math.cos(ph)) * 0.45)); } ribC.set(pts, 0.25 + 0.7 * g); ribC2.set(pts, 0.1 + 0.3 * g); }
     if (!launched) { const f = handW(Y, 'R'); for (let b = 0; b < 4; b++) bolts.bolt(f, f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).multiplyScalar(2.2)), { n: 3, jit: .15, w: 0.05, color: 0xff2a40, seed: frame * 7 + b }); }
     shakeAmp = Math.max(shakeAmp, 0.08 + 0.1 * g);
   }
-  // 五条: 蒼と赫が合わさって茈
-  if (t >= 8.8 && t < T.clash + 0.05) {
-    const g1 = clamp((t - 8.8) / 1.2), g2 = smooth(clamp((t - 10.0) / 0.6)); const launched = t >= T.launch; const zc = launched ? -5 + (t - T.launch) * 4.6 : -5; const c = V3(0, 34.6, zc);
-    if (t < 10.0) { const r = 2.2 * (1 - g1), a = t * 9; blueO.visible = redO.visible = true; blueO.position.copy(c).add(V3(Math.cos(a) * r, Math.sin(a) * r * 0.5, Math.sin(a) * r)); redO.position.copy(c).add(V3(-Math.cos(a) * r, -Math.sin(a) * r * 0.5, -Math.sin(a) * r)); blueO.scale.setScalar(0.5 + 0.5 * g1); redO.scale.setScalar(0.5 + 0.5 * g1); }
-    else { const r = 0.4 + 2.2 * g2 + (launched ? 0.4 : 0); purple.visible = purpleSh.visible = true; purple.position.copy(c); purple.scale.setScalar(r); purpleSh.position.copy(c); purpleSh.scale.setScalar(r * 1.35);
-      for (let b = 0; b < 10; b++) { const dir = V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize(); bolts.bolt(c, c.clone().addScaledVector(dir, r * (1.6 + rnd(b * 3))), { n: 4, jit: .3, w: 0.06, color: [0xc060ff, 0xff4aa0, 0x6aa8ff][b % 3], seed: frame * 5 + b }); } }
-    const f = handW(G, 'L'); for (let b = 0; b < 3; b++) bolts.bolt(f, f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).multiplyScalar(1.8)), { n: 3, jit: .15, w: 0.04, color: 0x9ad0ff, seed: frame * 7 + b });
+  // 五条: 蒼と赫が螺旋で引き合い→空気が歪み→合体の一瞬(止まる)→黒紫の球(茈)→発射
+  { const gc = V3(0, 34.6, -5), tA = 8.8, tM = 9.95, tF = T.launch;
+    if (t >= tA && t < tM + 0.1) {
+      const g1 = smooth(clamp((t - tA) / (tM - tA)));
+      const orbPos = (tt, sgn) => { const gg = smooth(clamp((tt - tA) / (tM - tA))); const r = 2.7 * Math.pow(1 - gg, 1.3) + 0.04; const a = (tt - tA) * 9.5 * (0.45 + gg) + (sgn > 0 ? 0 : PI); return gc.clone().add(V3(Math.cos(a) * r, Math.sin(a) * r * 0.5, Math.sin(a) * r * 0.85)); };
+      for (const [mesh, hl, sgn, rib] of [[blueO, haloB, 1, ribB], [redO, haloR, -1, ribR]]) { const p = orbPos(t, sgn); const rr = 0.28 + 0.38 * g1; mesh.visible = true; mesh.position.copy(p); mesh.scale.setScalar(rr); mesh.material.uniforms.time.value = tvid;
+        hl.visible = true; hl.position.copy(p); hl.scale.setScalar(rr * 6); const pts = []; for (let k = 0; k < 24; k++) pts.push(orbPos(Math.max(tA, t - k * 0.03), sgn)); rib.set(pts, rr * 0.8); }
+      lensSet(gc, 0.3, 0.1 + 0.3 * g1); shakeAmp = Math.max(shakeAmp, 0.05 + 0.12 * g1);
+    }
+    if (t >= tM - 0.02 && t < T.clash + 0.05) {
+      const g2 = smooth(clamp((t - tM) / 0.7)); const launched = t >= tF; const zc = launched ? -5 + (t - tF) * 4.6 : -5; const c = V3(0, 34.6, zc);
+      const r = 0.32 + 1.95 * g2 + (launched ? 0.25 : 0) + 0.05 * Math.sin(tvid * 40);
+      purple.visible = true; purple.position.copy(c); purple.scale.setScalar(r); purple.material.uniforms.time.value = tvid; haloP.visible = true; haloP.position.copy(c); haloP.scale.setScalar(r * (6.5 + 1.5 * Math.sin(tvid * 22)));
+      lensSet(c, 0.28 + 0.1 * g2, 0.3 + 0.2 * g2);
+      const d0 = t - tM; if (d0 >= -0.02 && d0 < 0.5) { ringFx(c, 0.6 + 7 * easeOut(clamp(d0 / 0.5)), 0xc070ff, 0.9 * (1 - clamp(d0 / 0.5)), 'z'); ringFx(c, 0.4 + 5 * easeOut(clamp(d0 / 0.5)), 0xffffff, 0.8 * (1 - clamp(d0 / 0.5)), 'y'); flashW = Math.max(flashW, 0.4 * (1 - clamp(d0 / 0.25))); if (d0 < 0.01) invert = 1; }
+      if (launched) { const pts = []; for (let k = 0; k < 28; k++) pts.push(V3(0, 34.6, zc - k * 0.6)); ribP.set(pts, r * 1.15);
+        for (let k = 0; k < 4; k++) { const zr = zc - 1.3 - k * 1.35; ringFx(V3(0, 34.6, zr), r * (1.4 + 0.55 * k), k % 2 ? 0x7a30ff : 0xff70d0, 0.75 * (1 - k / 4), 'z'); } }
+      for (let b = 0; b < 5; b++) bolts.bolt(c, c.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(r * (1.5 + rnd(b * 3)))), { n: 5, jit: .25, w: 0.012, color: [0xc060ff, 0xff70d0, 0x9ad0ff][b % 3], seed: frame * 5 + b });
+      shakeAmp = Math.max(shakeAmp, 0.1 + 0.1 * g2);
+    }
+    const fh = handW(G, 'L'); for (let b = 0; b < 2; b++) if (t > 8.8 && t < T.launch + 0.2) bolts.bolt(fh, fh.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).multiplyScalar(1.4)), { n: 3, jit: .12, w: 0.01, color: 0x9ad0ff, seed: frame * 7 + b });
   }
-  // 激突
-  { const d = hit(T.clash, 2.4); if (d >= 0) { const P = V3(0, 34, -0.4); const r = 3 + 22 * easeOut(clamp(d / 1.6)); boom.visible = boomC.visible = true; boom.position.copy(P); boom.scale.setScalar(r); boomC.position.copy(P); boomC.scale.setScalar(r * 1.1);
-      const op = 1 - smooth(clamp((d - 0.5) / 1.6)); boom.material.opacity = op * 0.9; boomC.material.opacity = op;
-      bolts.ring(V3(0, 34, -0.4), 40 * easeOut(clamp(d / 1.4)), 0.4 * (1 - clamp(d / 1.4)) + 0.03, 0xffffff, frame * 3, 40, 'y'); bolts.ring(V3(0, 34, -0.4), 40 * easeOut(clamp(d / 1.4)), 0.3 * (1 - clamp(d / 1.4)) + 0.03, 0xc060ff, frame * 3 + 5, 40, 'z');
-      for (let b = 0; b < 16; b++) { const dir = V3(rnd(b * 1.7) - .5, rnd(b * 2.9) - .5, rnd(b * 4.1) - .5).normalize(); bolts.bolt(P, P.clone().addScaledVector(dir, (6 + 14 * rnd(b * 5)) * easeOut(clamp(d / 0.5))), { n: 7, jit: .6, w: 0.2 * (1 - clamp(d / 2)), color: b % 2 ? 0xffe070 : 0xc060ff, seed: frame * 3 + b }); }
-      flashW = Math.max(flashW, d < 0.03 ? 0.9 : 0.5 * (1 - clamp(d / 0.8))); shakeAmp = Math.max(shakeAmp, 1.0 * (1 - clamp(d / 1.6))); if (d < 0.02) invert = 1;
-      fxLight.color.set(0xffd090); fxLight.position.copy(P); fxLight.intensity = 400 * (1 - clamp(d / 1.5)); } }
+  // 激突(紫 vs 解): 白熱した火球と光の輪・衝撃波
+  { const d = hit(T.clash, 2.4); if (d >= 0) { const P = V3(0, 34, -0.4); const k = clamp(d / 1.5); const r = 2.0 + 8 * easeOut(k); const fade = 1 - smooth(clamp((d - 0.3) / 1.2));
+      fire.visible = true; fire.position.copy(P); fire.scale.setScalar(r); fire.material.uniforms.a.value = fade; fire.material.uniforms.time.value = tvid; haloE.visible = true; haloE.position.copy(P); haloE.scale.setScalar(r * 2.6); haloE.material.opacity = 0.45 * fade;
+      ringFx(P, 42 * easeOut(clamp(d / 1.4)), 0xffffff, 0.9 * (1 - clamp(d / 1.4)), 'y'); ringFx(P, 36 * easeOut(clamp(d / 1.3)), 0xc070ff, 0.8 * (1 - clamp(d / 1.3)), 'z'); ringFx(P, 28 * easeOut(clamp((d - 0.1) / 1.2)), 0xffa050, 0.7 * (1 - clamp((d - 0.1) / 1.2)), 'y');
+      lensSet(P, 0.45, 0.35 * (1 - clamp(d / 1.0)));
+      for (let b = 0; b < 10; b++) { const dir = V3(rnd(b * 1.7) - .5, rnd(b * 2.9) - .5, rnd(b * 4.1) - .5).normalize(); bolts.bolt(P, P.clone().addScaledVector(dir, (6 + 14 * rnd(b * 5)) * easeOut(clamp(d / 0.5))), { n: 7, jit: .6, w: 0.03 * (1 - clamp(d / 2)) + 0.004, color: b % 2 ? 0xffe070 : 0xc060ff, seed: frame * 3 + b }); }
+      flashW = Math.max(flashW, d < 0.03 ? 0.5 : 0.1 * (1 - clamp(d / 0.5))); shakeAmp = Math.max(shakeAmp, 1.0 * (1 - clamp(d / 1.6))); if (d < 0.02) invert = 1;
+      fxLight.color.set(0xffd090); fxLight.position.copy(P); fxLight.intensity = 90 * (1 - clamp(d / 1.5)); } }
   // 着地
   { const d = hit(T.land, 0.7); if (d >= 0) { for (const z of [-4, 4]) { bolts.ring(V3(0, 0.1, z), 9 * easeOut(d / 0.7), 0.25 * (1 - d / 0.7) + 0.03, 0xffffff, frame + z, 26, 'y');
         for (let k = 0; k < 8; k++) { const a = rnd(k + z) * PI * 2; bolts.seg(V3(0, 0.08, z), V3(Math.cos(a) * 5, 0.08, z + Math.sin(a) * 5).lerp(V3(0, 0.08, z), 1 - easeOut(clamp(d / 0.3))), 0.12, 0x101018); } }
@@ -405,9 +483,10 @@ function shot(t, tvid) {
   else if (t < 6.0) { p = V(kf(t, [[4.8, [-1.6, 32.2, 23.4]], [6.0, [-1.0, 32.0, 24.6]]], lin)); l = yh.clone(); fov = 40; sh = 0.03; roll = -0.05; }
   else if (t < 7.6) { p = V(kf(t, [[6.0, [10, 32, -2]], [7.6, [17, 38, 0]]], lin)); l = V3(0, 35, 0); fov = 58; sh = 0.12; roll = 0.1; }
   else if (t < 9.4) { p = V(kf(t, [[7.6, [3, 33.8, 16]], [9.4, [2.2, 33.6, 12.5]]], lin)); l = V3(0, 34.8, -4); fov = 52; sh = 0.03; roll = 0.08; }
-  else if (t < 10.6) { p = V(kf(t, [[9.4, [-3, 35.6, -15]], [10.6, [-2.4, 35.2, -11.5]]], lin)); l = V3(0, 34.6, 4); fov = 50; sh = 0.05; roll = -0.08; }
-  else if (t < 11.6) { p = V(kf(t, [[10.6, [28, 36, 2]], [11.6, [16, 35, 3]]], lin)); l = V3(0, 34.5, 0); fov = 46; sh = 0.1; }
-  else if (t < 12.4) { p = V(kf(t, [[11.6, [13, 35.5, 3]], [12.4, [8, 35, 3]]], lin)); l = V3(0, 34, 0); fov = 52; sh = 0.15; roll = 0.1; }
+  else if (t < 9.9) { p = V(kf(t, [[9.4, [-3, 35.6, -15]], [9.9, [-2.6, 35.3, -12]]], lin)); l = V3(0, 34.6, -2); fov = 50; sh = 0.05; roll = -0.08; }
+  else if (t < 10.6) { p = V(kf(t, [[9.9, [-4.2, 35.4, -9.5]], [10.6, [-3.2, 35.2, -8.6]]], lin)); l = V3(0, 34.6, -5); fov = 40; sh = 0.06; roll = -0.1; }
+  else if (t < 11.6) { p = V(kf(t, [[10.6, [20, 36.5, 4]], [11.6, [15, 35.5, 4]]], lin)); l = V3(0, 34.5, 0); fov = 46; sh = 0.1; }
+  else if (t < 12.4) { p = V(kf(t, [[11.6, [17, 36, 6]], [12.4, [14, 35.5, 6]]], lin)); l = V3(0, 34, 0); fov = 50; sh = 0.15; roll = 0.1; }
   else if (t < 13.9) { p = V(kf(t, [[12.4, [10, 30, 4]], [13.9, [7, 4, 5]]], lin)); l = V(kf(t, [[12.4, [0, 34, 0]], [13.9, [0, 3, -1]]], lin)); fov = 58; sh = 0.1; roll = -0.1; }
   else if (t < 14.5) { p = V3(9, 1.6, 8); l = V3(0, 1.3, -1); fov = 56; sh = 0.2 * (14.5 - t); }
   else if (t < 15.4) { const h = handW(G, 'R'); p = h.clone().add(V3(0.25, 0.6, 1.6)); l = h.clone().add(V3(0, 0.5, 0)); fov = 28; sh = 0.006; bd = [l, p]; }
@@ -452,10 +531,10 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.55, 0.55, 0.82); composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const post = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uSat: { value: 1 }, uFlash: { value: 0 }, uInv: { value: 0 }, uFade: { value: 0 }, uCA: { value: 0.0007 }, uAsp: { value: W / H }, uC: { value: new THREE.Vector2(.5, .5) }, uR: { value: 0 }, uStr: { value: 0 }, uVig: { value: 0.45 } },
+  uniforms: { tDiffuse: { value: null }, uSat: { value: 1 }, uFlash: { value: 0 }, uInv: { value: 0 }, uFade: { value: 0 }, uCA: { value: 0.0007 }, uAsp: { value: W / H }, uC: { value: new THREE.Vector2(.5, .5) }, uR: { value: 0 }, uStr: { value: 0 }, uVig: { value: 0.45 }, uLC: { value: new THREE.Vector2(.5, .5) }, uLR: { value: 0.3 }, uLS: { value: 0 } },
   vertexShader: 'varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uSat,uFlash,uInv,uFade,uCA,uAsp,uR,uStr,uVig; uniform vec2 uC; varying vec2 vUv;
-  void main(){ vec2 uv=vUv; vec2 d=uv-uC; d.x*=uAsp; float r=length(d); float ring=exp(-pow((r-uR)/0.09,2.0))*uStr;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uSat,uFlash,uInv,uFade,uCA,uAsp,uR,uStr,uVig,uLR,uLS; uniform vec2 uC,uLC; varying vec2 vUv;
+  void main(){ vec2 uv=vUv; { vec2 dl=uv-uLC; dl.x*=uAsp; float rl=length(dl); float kl=uLS*smoothstep(uLR,0.0,rl); uv=uLC+(uv-uLC)*(1.0-kl); } vec2 d=uv-uC; d.x*=uAsp; float r=length(d); float ring=exp(-pow((r-uR)/0.09,2.0))*uStr;
     vec2 dir=normalize(d+1e-5); dir.x/=uAsp; uv+=dir*ring*0.07; vec2 ca=dir*(uCA+ring*0.01)*(0.5+r);
     vec3 col; col.r=texture2D(tDiffuse,uv+ca).r; col.g=texture2D(tDiffuse,uv).g; col.b=texture2D(tDiffuse,uv-ca).b;
     float l=dot(col,vec3(.299,.587,.114)); col=mix(vec3(l),col,uSat); col=mix(col,vec3(1.0-l*1.1),uInv); col+=uFlash;
@@ -470,6 +549,7 @@ function updatePost(t, tvid) {
   u.uFade.value = kf(tvid, [[0, 1], [0.25, 0], [VID_DUR - 1.0, 0], [VID_DUR, 1]], lin);
   u.uCA.value = 0.0007; u.uStr.value = 0;
   for (const tc of SHOCKS) { const d = t - tc; if (d >= 0 && d < 0.8) { const pos = tc === T.clash ? V3(0, 34, 0) : tc === T.counter ? V3(0, 1.4, -5.9) : tc === T.domG2 ? V3(0, 1.5, -7.4) : tc >= 23 && tc < 27 ? bfPos : V3(0, 2, 0); const sp = pos.clone().project(camera); u.uC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uR.value = d * 1.4; u.uStr.value = 1.0 * (1 - d / 0.8); u.uCA.value = 0.0007 + 0.011 * (1 - d / 0.8); } }
+  if (lensS > 0) { const sp = lensC.clone().project(camera); u.uLC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uLR.value = lensR; u.uLS.value = lensS; } else u.uLS.value = 0;
   bloom.strength = (bd ? 0.2 : 0.55) + Math.min(0.8, flashW * 0.8);
 }
 // ---------- 画面効果(スピード線のみ。文字は一切出さない) ----------
@@ -485,7 +565,7 @@ function drawSpeed(c, t, tvid) {
 // ---------- 1フレーム ----------
 function renderAt(tvid) {
   const t = tau(tvid);
-  updateScene(t, tvid); updateSpear(t); updateFx(t, tvid); updateParts(t); shot(t, tvid); updatePost(t, tvid);
+  updateScene(t, tvid); updateSpear(t); updateFx(t, tvid); updateParts(t); shot(t, tvid); updateSoft(t); updatePost(t, tvid);
   composer.render();
   ctx2.drawImage(renderer.domElement, 0, 0, W, H);
   drawSpeed(ctx2, t, tvid);
