@@ -720,6 +720,16 @@ function drawSpeed(c, t, tvid) {
     c.restore(); }
 }
 
+// ---------- 最後の呼びかけ(社長の指示で、この場面だけ文字を出す) ----------
+function drawEnd(c, tvid) {
+  const t0 = VID_DUR - 4.0, t1 = VID_DUR - 1.1; if (tvid < t0 || tvid > t1 + 0.4) return;
+  const a = smooth(clamp((tvid - t0) / 0.6)) * (1 - smooth(clamp((tvid - t1) / 0.4)));
+  const lines = ['次の対決は誰と誰?', 'チャンネル登録して待て。']; const fs = 72 * SC;
+  c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `900 ${fs}px "IPAGothic", sans-serif`; c.lineJoin = 'round'; c.globalAlpha = a;
+  lines.forEach((tx, i) => { const y = H * 0.74 + i * fs * 1.45 + (1 - a) * 24 * SC; c.lineWidth = 14 * SC; c.strokeStyle = '#050010'; c.strokeText(tx, W / 2, y); c.fillStyle = i ? '#ffe070' : '#ffffff'; c.fillText(tx, W / 2, y); });
+  c.restore();
+}
+
 // ---------- 1フレーム ----------
 function renderAt(tvid) {
   const t = tau(tvid);
@@ -727,6 +737,7 @@ function renderAt(tvid) {
   composer.render();
   ctx2.drawImage(renderer.domElement, 0, 0, W, H);
   drawSpeed(ctx2, t, tvid);
+  drawEnd(ctx2, tvid);
 }
 window.renderAt = renderAt;
 window.frameDataURL = () => out2d.toDataURL('image/jpeg', 0.93);
