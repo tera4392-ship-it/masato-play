@@ -1,0 +1,5 @@
+node_modules/
+out/chunks/
+out/video_*.mp4
+out/list.txt
+out/se.wav
