@@ -8,7 +8,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { makeYuji, makeGojo, makeLimb, addWhiteEyes, addHands, setHand, makeSpear, setPose, setTint, worldOf, PX } from './chars.js';
 import { buildWorld } from './world.js';
-import { T, tau, VID_DUR, END } from './timeline.js';
+import { T, PUR, tau, VID_DUR, END } from './timeline.js';
 
 const q = new URLSearchParams(location.search);
 const SC = parseFloat(q.get('s') ?? '1');
@@ -65,6 +65,14 @@ const auraY = makeYuji(scene); auraY.mats.forEach(m => { m.transparent = true; m
 const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 36), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false, uniforms: { a: { value: 1 }, time: { value: 0 } },
   vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
   fragmentShader: 'uniform float a,time; varying vec3 vN; varying vec3 vP; void main(){ float f=pow(1.0-abs(vN.z),2.4); float g=0.5+0.5*sin(vP.y*22.0+time*3.0)*sin(vP.x*17.0-time*2.0+vP.z*9.0); vec3 c=vec3(1.0,0.92,0.6)*(0.035+f*0.85+g*0.05); gl_FragColor=vec4(c*a,1.0);}' })); dome.visible = false; scene.add(dome); // 新陰流簡易領域
+const HZ = 25.0; const HD = 18; // ビルの手前の壁面と奥行き
+const HZ_=0; // 貫通されるビルの手前の壁面
+const holeF = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.ShaderMaterial({ uniforms: {}, vertexShader: 'varying vec2 vU; void main(){ vU=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', fragmentShader: 'varying vec2 vU; void main(){ float r=length(vU); vec3 c=mix(vec3(0.015,0.0,0.03),vec3(0.45,0.1,0.85),pow(r,4.0)); gl_FragColor=vec4(c,1.0);}' })); holeF.rotation.y = PI; holeF.position.set(0, 1.7, HZ - 1.0);
+const holeR = new THREE.Mesh(new THREE.RingGeometry(0.86, 1.0, 40), new THREE.MeshBasicMaterial({ color: 0xb060ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); holeR.rotation.y = PI; holeR.position.set(0, 1.7, HZ - 1.02);
+const holeB = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.ShaderMaterial({ uniforms: {}, vertexShader: 'varying vec2 vU; void main(){ vU=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', fragmentShader: 'varying vec2 vU; void main(){ float r=length(vU); vec3 c=mix(vec3(0.015,0.0,0.03),vec3(0.45,0.1,0.85),pow(r,4.0)); gl_FragColor=vec4(c,1.0);}' })); holeB.position.set(0, 1.7, HZ + HD + 0.08);
+const trench = new THREE.Mesh(new THREE.BoxGeometry(1, 0.05, 1), new THREE.MeshBasicMaterial({ color: 0x040006 }));
+const trenchE = [0, 1].map(() => new THREE.Mesh(new THREE.BoxGeometry(1, 0.05, 1), new THREE.MeshBasicMaterial({ color: 0xa040ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
+[holeF, holeR, holeB, trench, ...trenchE].forEach(o => { o.visible = false; scene.add(o); });
 const flyingArm = makeLimb(scene, G.paint); const spear = makeSpear(scene);
 
 const PRE = {
@@ -148,7 +156,7 @@ const GK = compile([
   [41.0, 'punchL', { z: 1.7 }], [41.3, 'guard'], [41.55, 'windR'], [42.0, 'kick', { z: 1.8 }], [42.3, 'guard'],
   [42.6, 'hurt', { z: 1.0 }], [42.9, 'guard', { z: 1.4 }], [43.2, 'punchR', { z: 1.8 }], [43.45, 'guard'], [43.7, 'punchR', { z: 1.7 }],
   [44.0, 'stagger', { z: 0.2 }], [44.3, 'aimL', { z: -3.0 }], [45.0, 'aimL'], [45.12, 'redwind', { z: -2.8 }], [45.35, 'punchR', { z: -1.75 }], [45.9, 'punchR'], [46.4, 'idle', { z: -3 }],
-  [51.0, 'idle'], [51.73, 'idle', { e: 'snap' }], [51.74, 'flipaim', { x: 0, y: 2.2, z: 7.8, yaw: PI, e: 'snap' }], [52.8, 'flipaim'], [53.4, 'landing', { y: 0.2, z: 7.8, yaw: 0 }], [54.4, 'idle', { y: 0 }], [59, 'idle'],
+  [51.0, 'idle'], [51.73, 'idle', { e: 'snap' }], [51.74, 'flipaim', { x: 0, y: 2.6, z: 3.6, yaw: PI, e: 'snap' }], [53.0, 'flipaim'], [53.6, 'landing', { y: 0.2, z: 3.6, yaw: 0 }], [54.4, 'idle', { y: 0 }], [59, 'idle'],
 ]);
 // 虎杖(yaw π, 南側)
 const YK = compile([
@@ -165,7 +173,7 @@ const YK = compile([
   [44.7, 'pulled', { z: 4.2 }], [45.0, 'pulled', { z: 0.3 }], [45.3, 'pulled', { z: -1.6, y: 0 }],
   [45.4, 'hurt', { z: -1.5 }], [45.65, 'tumble1', { z: 2.5, y: 1.4 }], [46.0, 'tumble3', { z: 7.5, y: 0.9 }], [46.35, 'kneel', { z: 9.0, y: 0 }],
   [46.45, 'sealY', { z: 9.0 }], [47.4, 'sealY'], [47.55, 'frozen'], [48.2, 'frozen'], [48.5, 'kneel'], [49.9, 'kneel'], [50.4, 'guard'], [51.9, 'guard'],
-  [52.4, 'hurt', { z: 9.4 }], [52.7, 'tumble1', { z: 16, y: 1.5 }], [53.2, 'tumble2', { z: 30, y: 5 }], [53.8, 'tumble3', { z: 44, y: 2 }], [54.2, 'ko', { z: 48, y: 0 }], [60, 'ko'],
+  [52.45, 'hurt', { z: 9.2 }], [52.55, 'tumble1', { z: 10.8, y: 1.2 }], [52.8, 'tumble2', { z: 18, y: 2.2 }], [53.05, 'tumble3', { z: 25.6, y: 2.0 }], [53.35, 'tumble1', { z: 38, y: 1.8 }], [53.8, 'tumble2', { z: 50, y: 1.2 }], [54.4, 'ko', { z: 56, y: 0 }], [60, 'ko'],
 ]);
 
 // ---------- エフェクト基盤 ----------
@@ -238,6 +246,10 @@ burst(T.cancel, [0, 6, -6], 260, { speed: 18, up: 5, life: 2.4, size: 0.9, g: 8,
 for (let k = 0; k < 6; k++) burst(T.heal + k * 0.35, [0, 0.2, -7.4], 16, { speed: 0.7, up: 3.0, life: 1.8, size: 0.12, g: -0.5, cols: [0x40ff80, 0xa0ffc0, 0x30e070], seed: 50 + k, ground: false, spread: 4 });
 burst(T.counter, [0, 1.4, -6.1], 170, { speed: 15, up: 4, life: 2.0, size: 0.5, g: 6, cols: [0x4aa8ff, 0xffffff, 0x101010, 0x9ad0ff, 0xff2030], seed: 60 });
 burst(T.whiteEyes - 0.2, [0, 0.2, 4.2], 50, { speed: 6, up: 3, life: 1.4, size: 0.35, g: 9, cols: [0x5a5c68, 0x8a8c98, 0x3a3c48], seed: 61 });
+for (let k = 0; k < 9; k++) { const zk = 7 + k * 2.1; burst(T.purpleFire + (zk - PUR.z0) / PUR.v, [0, 0.2, zk], 36, { speed: 7, up: 8, life: 1.6, size: 0.45, g: 12, cols: [0x2a2c36, 0x1c1e26, 0x5a5c68, 0xe8e8f0, 0x20222c], seed: 300 + k, dir: [0, 1, 0], spread: 2.2 }); }
+burst(T.hole, [0, 1.8, HZ - 0.3], 320, { speed: 15, up: 3, life: 2.2, size: 0.7, g: 9, cols: [0x16243e, 0x9ad0ff, 0xffe2a8, 0xffffff, 0x3a3e4c, 0xb060ff], seed: 330, dir: [0, 0.15, -1], spread: 1.8 });
+burst(T.hole + 0.3, [0, 2, HZ + HD], 300, { speed: 20, up: 3, life: 2.4, size: 0.8, g: 9, cols: [0x16243e, 0x9ad0ff, 0xffe2a8, 0xffffff, 0x3a3e4c, 0xb060ff], seed: 331, dir: [0, 0.2, 1], spread: 2.0 });
+burst(T.hole, [0, 5, HZ], 180, { speed: 9, up: 6, life: 2.6, size: 0.9, g: 8, cols: [0x16243e, 0x3a3e4c, 0x9ad0ff], seed: 332, spread: 6 });
 burst(T.kneel, [0, 0.2, 9.0], 40, { speed: 4, up: 2, life: 1.4, size: 0.3, g: 9, cols: [0x5a5c68, 0x8a8c98], seed: 62 });
 for (let k = 0; k < 14; k++) burst(T.interior + k * 0.65, [(rnd(k) - 0.5) * 18, 0.4, (rnd(k * 2) - 0.5) * 22], 8, { speed: 0.6, up: 4, life: 2.5, size: 0.3, g: -0.3, cols: [0x000000, 0x1a0010], seed: 70 + k, ground: false, spread: 6 });
 
@@ -425,7 +437,7 @@ function sigils(t, frame) {
 
 let caBoost = 0;
 function lateFx(t, tvid, frame) {
-  caBoost = 0; dome.visible = false; auraY.root.visible = false;
+  caBoost = 0; dome.visible = false; auraY.root.visible = false; trench.visible = false; trenchE.forEach(m => (m.visible = false)); holeF.visible = holeR.visible = holeB.visible = false;
   const yp = Y.root.position, gp = G.root.position, yb = bodyOf(Y), gb2 = bodyOf(G);
   // ---- 新陰流簡易領域(金色のドームと足元の紋)+ 領域展延(体を包む光) ----
   if (t >= T.simple && t < T.redHit) {
@@ -465,21 +477,30 @@ function lateFx(t, tvid, frame) {
   // ---- 反転術式(緑の回復) ----
   if (t >= T.reverse && t < T.reverse + 1.3) { const d = t - T.reverse; ringFx(V3(yp.x, 0.2, yp.z), 5 * easeOut(clamp(d / 1.0)), 0x50ff90, 0.6 * (1 - clamp(d / 1.0)), 'y'); }
   // ---- 五条の瞬間移動 ----
-  { const d = t - T.tele; if (d >= 0 && d < 0.55) { const a = V3(0, 1.4, -3.0), b = V3(0, 1.4, 7.8); const life = 1 - d / 0.55; bolts.bolt(a, b, { n: 14, jit: .5, w: 0.14 * life + 0.01, color: 0xbfe0ff, seed: frame }); bolts.bolt(a, b, { n: 14, jit: .5, w: 0.06 * life, color: 0xffffff, seed: frame + 3 });
+  { const d = t - T.tele; if (d >= 0 && d < 0.55) { const a = V3(0, 1.4, -3.0), b = V3(0, 1.8, 3.6); const life = 1 - d / 0.55; bolts.bolt(a, b, { n: 14, jit: .5, w: 0.14 * life + 0.01, color: 0xbfe0ff, seed: frame }); bolts.bolt(a, b, { n: 14, jit: .5, w: 0.06 * life, color: 0xffffff, seed: frame + 3 });
       ringFx(V3(0, 1.0, -3.0), 4 * easeOut(clamp(d / 0.4)), 0xbfe0ff, 0.8 * life, 'y'); flashW = Math.max(flashW, d < 0.05 ? 0.35 : 0); }
-    const d2 = t - T.reappear; if (d2 >= 0 && d2 < 0.5) { ringFx(V3(0, 1.5, 7.8), 5 * easeOut(clamp(d2 / 0.4)), 0xffffff, 0.8 * (1 - d2 / 0.5), 'y'); ringFx(V3(0, 2.0, 7.8), 3 * easeOut(clamp(d2 / 0.4)), 0xbfe0ff, 0.7 * (1 - d2 / 0.5), 'z'); flashW = Math.max(flashW, d2 < 0.05 ? 0.4 : 0.1 * (1 - d2 / 0.5)); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - d2 / 0.5)); } }
+    const d2 = t - T.reappear; if (d2 >= 0 && d2 < 0.5) { ringFx(V3(0, 1.5, 3.6), 5 * easeOut(clamp(d2 / 0.4)), 0xffffff, 0.8 * (1 - d2 / 0.5), 'y'); ringFx(V3(0, 2.6, 3.6), 3 * easeOut(clamp(d2 / 0.4)), 0xbfe0ff, 0.7 * (1 - d2 / 0.5), 'z'); flashW = Math.max(flashW, d2 < 0.05 ? 0.4 : 0.1 * (1 - d2 / 0.5)); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - d2 / 0.5)); } }
   // ---- 体を縦に反転して、至近距離から紫を体に叩き込む ----
   if (t >= T.reappear && t < T.purpleFire + 2.0) {
     const hL = handW(G, 'L'); const f1 = smooth(clamp((t - 51.85) / 0.45)); const fired = t >= T.purpleFire;
     if (!fired) { const r = 0.6 * (1 - f1) + 0.03, a = (t - 51.85) * 14; for (const [mesh, hl, sg] of [[blueO, haloB, 1], [redO, haloR, -1]]) { const pp = hL.clone().add(V3(Math.cos(a + (sg > 0 ? 0 : PI)) * r, Math.sin(a + (sg > 0 ? 0 : PI)) * r * 0.6, 0.35)); mesh.visible = true; mesh.position.copy(pp); mesh.scale.setScalar(0.12 + 0.1 * f1); mesh.material.uniforms.time.value = tvid; hl.visible = true; hl.position.copy(pp); hl.scale.setScalar(1.2); }
       if (f1 > 0.7) { const pc = hL.clone().add(V3(0, 0, 0.35)); purple.visible = true; purple.position.copy(pc); purple.scale.setScalar(0.1 + 0.45 * smooth((f1 - 0.7) / 0.3)); purple.material.uniforms.time.value = tvid; haloP.visible = true; haloP.position.copy(pc); haloP.scale.setScalar(2.4); lensSet(pc, 0.3, 0.3); } }
-    else { const d = t - T.purpleFire; const c = V3(0, 1.5, yp.z - 0.3); const r = 0.4 + 4.4 * easeOut(clamp(d / 0.9)); const op = 1 - smooth(clamp((d - 0.9) / 1.0));
-      purple.visible = true; purple.position.copy(c); purple.scale.setScalar(r); purple.material.uniforms.time.value = tvid; haloP.visible = true; haloP.position.copy(c); haloP.scale.setScalar(r * 5 * op + 0.1); lensSet(c, 0.34, 0.45 * op);
-      const pts = []; for (let k = 0; k < 28; k++) pts.push(V3(0, 1.5, c.z + 2 + k * 2.4)); ribP.set(pts, r * 0.9 * op);
-      const L = 80 * easeOut(clamp(d / 1.0)); bolts.seg(V3(0, 0.06, c.z), V3(0, 0.06, c.z + L), 2.2 * op + 0.05, 0x050008); bolts.seg(V3(-1.2, 0.07, c.z), V3(-1.2, 0.07, c.z + L), 0.14 * op, 0xa040ff); bolts.seg(V3(1.2, 0.07, c.z), V3(1.2, 0.07, c.z + L), 0.14 * op, 0xa040ff);
-      for (let k = 0; k < 4; k++) { const dd = d - k * 0.12; if (dd > 0) ringFx(V3(0, 0.3 + k * 0.4, c.z + dd * 22), 2 + dd * 4, k % 2 ? 0x7a30ff : 0xff70d0, 0.7 * (1 - clamp(dd / 1.2)), 'z'); }
-      ringFx(V3(0, 0.3, c.z), 20 * easeOut(clamp(d / 0.9)), 0xffffff, 0.9 * (1 - clamp(d / 0.9)), 'y');
-      flashW = Math.max(flashW, d < 0.04 ? 0.7 : 0.15 * (1 - clamp(d / 0.7))); shakeAmp = Math.max(shakeAmp, 1.1 * (1 - clamp(d / 1.2))); if (d < 0.02) invert = 1; fxLight.color.set(0xb060ff); fxLight.position.copy(c); fxLight.intensity = 90 * (1 - clamp(d / 1.0)); caBoost = 0.01 * (1 - clamp(d / 0.8)); } }
+    else { const d = t - T.purpleFire; const gy = 2.6, zf = PUR.z0 + PUR.v * d; const c = V3(0, gy + (1.5 - gy) * smooth(clamp(d / 0.3)), zf); const r = 0.4 + 4.4 * easeOut(clamp(d / 0.9)); const op = 1 - smooth(clamp((d - 1.9) / 0.8));
+      purple.visible = op > 0.02; purple.position.copy(c); purple.scale.setScalar(r); purple.material.uniforms.time.value = tvid; haloP.visible = true; haloP.position.copy(c); haloP.scale.setScalar(r * 5 * op + 0.1); lensSet(c, 0.34, 0.45 * op);
+      const pts = []; for (let k = 0; k < 28; k++) pts.push(V3(0, c.y, c.z - 1.5 - k * 2.4)); ribP.set(pts, r * 0.9 * op);
+      for (let k = 0; k < 4; k++) { const dd = d - k * 0.1; if (dd > 0 && dd < 1.4) ringFx(V3(0, c.y, PUR.z0 + PUR.v * dd), 2 + dd * 3, k % 2 ? 0x7a30ff : 0xff70d0, 0.7 * (1 - clamp(dd / 1.4)), 'z'); }
+      ringFx(V3(0, 0.3, PUR.z0 + 3), 18 * easeOut(clamp(d / 0.7)), 0xffffff, 0.9 * (1 - clamp(d / 0.7)), 'y');
+      flashW = Math.max(flashW, d < 0.04 ? 0.7 : 0.12 * (1 - clamp(d / 0.6))); shakeAmp = Math.max(shakeAmp, 0.9 * (1 - clamp(d / 1.2))); if (d < 0.02) invert = 1; fxLight.color.set(0xb060ff); fxLight.position.copy(c); fxLight.intensity = 90 * (1 - clamp(d / 2.4)); caBoost = 0.01 * (1 - clamp(d / 0.8));
+      // アスファルトに刻まれる溝(通過した跡が残る)
+      const zEnd = Math.min(zf, HZ - 0.1), zS = PUR.z0 - 0.5, wr = 2 * Math.sqrt(Math.max(0, r * r - 2.25)) * 0.95;
+      if (zEnd > zS && wr > 0.1) { trench.visible = true; trench.scale.set(wr, 1, zEnd - zS); trench.position.set(0, 0.07, (zEnd + zS) / 2); trenchE.forEach((m, i) => { m.visible = true; m.scale.set(0.22, 1, zEnd - zS); m.position.set((i ? 1 : -1) * wr / 2, 0.075, (zEnd + zS) / 2); m.material.opacity = 0.6 + 0.3 * Math.sin(tvid * 14 + i); }); } } }
+  // ---- ビルに穴が空く(着弾後は残る) ----
+  { const dh = t - T.hole; if (dh >= 0) { const R = 5.3 * easeOut(clamp(dh / 0.25)); const glow = 0.45 + 0.55 * (1 - clamp(dh / 2.5));
+      holeF.visible = holeR.visible = holeB.visible = true; holeF.scale.setScalar(R); holeR.scale.setScalar(R * 1.08); holeR.material.opacity = glow; holeB.scale.setScalar(R);
+      if (dh < 0.7) { const lf = 1 - dh / 0.7; for (let b = 0; b < 16; b++) { const a = rnd(b * 2.7) * PI * 2, l0 = R * (1.1 + 0.7 * rnd(b * 5.1)), l1 = l0 + (6 + 14 * rnd(b * 3.3)) * easeOut(clamp(dh / 0.2)); const o = V3(0, 1.7, HZ - 0.15);
+          bolts.bolt(o.clone().add(V3(Math.cos(a) * l0, Math.sin(a) * l0, 0)), o.clone().add(V3(Math.cos(a) * l1, Math.sin(a) * l1, 0)), { n: 5, jit: 0.5, w: 0.1 * lf + 0.02, color: b % 2 ? 0xffffff : 0xb060ff, seed: frame * 3 + b }); }
+        ringFx(V3(0, 1.7, HZ - 0.3), 30 * easeOut(clamp(dh / 0.6)), 0xd0a0ff, 0.8 * (1 - clamp(dh / 0.6)), 'z');
+        flashW = Math.max(flashW, dh < 0.04 ? 0.6 : 0.15 * lf); shakeAmp = Math.max(shakeAmp, 1.4 * lf); if (dh < 0.02) invert = 1; } } }
   // ---- 領域の崩壊 ----
   { const d = t - T.domEnd; if (d >= 0 && d < 0.5) { flashW = Math.max(flashW, 0.8 * (1 - d / 0.5)); shakeAmp = Math.max(shakeAmp, 0.5 * (1 - d / 0.5)); if (d < 0.05) invert = 1; } }
 }
@@ -650,10 +671,12 @@ function shot(t, tvid) {
   else if (t < T.yRise) { p = yb.clone().add(V3(1.8, 0.9, -2.8)); l = yb.clone(); fov = 42; sh = 0.03; }
   else if (t < T.tele) { const m = yb.clone().lerp(gb, 0.5); p = V3(2.8, 1.8, gb.z - 3.2); l = V3(0, 1.4, m.z + 1); fov = 52; sh = 0.02; roll = -0.05; }
   else if (t < T.reappear) { p = V3(16, 2.6, 2.4); l = V3(0, 1.4, 2.4); fov = 60; sh = 0.2; roll = 0.12; }
-  else if (t < T.purpleFire) { p = V3(6, 2.0, 7.6); l = V3(0, 1.9, 8.0); fov = 52; sh = 0.03; roll = 0.0; }
-  else if (t < 53.2) { p = V3(5.5, 2.2, gp.z - 3.5); l = V3(0, 1.8, gp.z + 1.5); fov = 50; sh = 0.2; roll = 0.1; }
-  else if (t < T.domEnd) { p = V3(10, 4, yp.z - 6); l = yp.clone(); fov = 48; sh = 0.04; }
-  else { const e = T.domEnd; p = V(kf(t, [[e, [4, 2, 1]], [END, [0, 95, 40]]], smooth)); l = V(kf(t, [[e, [0, 1.5, 7.8]], [END, [0, 4, 8]]], lin)); fov = 55; sh = 0.01; }
+  else if (t < 52.55) { const k = clamp((t - T.reappear) / 0.8); p = V3(2.0 - 0.3 * k, 0.3, yp.z + 3.2 - 0.9 * k); l = V3(0, 2.3, 3.6); fov = 50 - 4 * k; sh = 0.02 + 0.2 * clamp((t - T.purpleFire) / 0.15); roll = -0.06; }
+  else if (t < 52.9) { const zf = PUR.z0 + PUR.v * (t - T.purpleFire); p = V3(12, 2.2, zf + 1); l = V3(0, 1.8, zf + 5); fov = 46; sh = 0.12; roll = 0.08; }
+  else if (t < T.hole) { p = V3(8, 2.2, 10); l = V3(0, 2.2, HZ); fov = 46; sh = 0.08; roll = -0.05; }
+  else if (t < 54.4) { const k = clamp((t - T.hole) / 1.0); p = V3(8 + k, 2.2 + 0.8 * k, 12); l = V3(0, 2.8, HZ); fov = 46 - 4 * k; sh = 0.04; roll = -0.05; }
+  else if (t < T.dawn) { p = V3(3.2, 3.4, gp.z - 5); l = V3(0, 3.0, HZ); fov = 36; sh = 0.02; }
+  else { const e = T.dawn; p = V(kf(t, [[e, [3.2, 3.4, -1.4]], [END, [0, 95, 5]]], smooth)); l = V(kf(t, [[e, [0, 3, HZ]], [END, [0, 4, 20]]], lin)); fov = 55; sh = 0.01; }
   const total = Math.max(sh, shakeAmp);
   camera.up.copy(up); if (up.z === 0 && roll) camera.up.applyAxisAngle(V3(0, 0, 1), roll);
   camera.position.copy(p).add(shake(tvid, total)); camera.lookAt(l); camera.fov = fov; camera.updateProjectionMatrix();
@@ -676,14 +699,14 @@ const post = new ShaderPass({
     float v=1.0-smoothstep(0.5,1.1,length((vUv-.5)*vec2(1.0,.6))); col*=mix(1.0,v,uVig); col*=1.0-uFade; gl_FragColor=vec4(col,1.0);} `
 });
 composer.addPass(post);
-const SHOCKS = [T.clash, T.land, T.cut, T.shatter, T.counter, T.cancel, T.domG, T.domY, T.domG2, T.redHit, T.purpleFire, ...T.bf];
+const SHOCKS = [T.clash, T.land, T.cut, T.shatter, T.counter, T.cancel, T.domG, T.domY, T.domG2, T.redHit, T.purpleFire, T.hole, ...T.bf];
 function updatePost(t, tvid) {
   const u = post.uniforms;
   u.uSat.value = kf(t, [[T.poison, 1], [T.poison + 0.3, 0.55], [T.heal + 1.6, 0.55], [T.heal + 2.6, 1], [T.domG2 + 0.4, 1], [T.domG2 + 1.0, 0.8], [T.domEnd, 0.8], [T.domEnd + 0.5, 1]]);
   u.uInv.value = invert; u.uFlash.value = flashW * (invert ? 0 : 1);
   u.uFade.value = kf(tvid, [[0, 1], [0.25, 0], [VID_DUR - 1.0, 0], [VID_DUR, 1]], lin);
   u.uCA.value = 0.0007 + caBoost; u.uStr.value = 0;
-  for (const tc of SHOCKS) { const d = t - tc; if (d >= 0 && d < 0.8) { const pos = tc === T.clash ? V3(0, 34, 0) : tc === T.counter ? V3(0, 1.4, -5.9) : tc === T.domG2 ? V3(0, 1.5, -7.4) : tc === T.redHit ? V3(0, 1.4, 2.2) : tc === T.purpleFire ? V3(0, 1.5, 9.1) : tc >= 23 && tc < 27 ? bfPos : V3(0, 2, 0); const sp = pos.clone().project(camera); u.uC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uR.value = d * 1.4; u.uStr.value = 1.0 * (1 - d / 0.8); u.uCA.value = 0.0007 + 0.011 * (1 - d / 0.8); } }
+  for (const tc of SHOCKS) { const d = t - tc; if (d >= 0 && d < 0.8) { const pos = tc === T.clash ? V3(0, 34, 0) : tc === T.counter ? V3(0, 1.4, -5.9) : tc === T.domG2 ? V3(0, 1.5, -7.4) : tc === T.redHit ? V3(0, 1.4, 2.2) : tc === T.purpleFire ? V3(0, 1.8, 4.2) : tc === T.hole ? V3(0, 1.8, HZ) : tc >= 23 && tc < 27 ? bfPos : V3(0, 2, 0); const sp = pos.clone().project(camera); u.uC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uR.value = d * 1.4; u.uStr.value = 1.0 * (1 - d / 0.8); u.uCA.value = 0.0007 + 0.011 * (1 - d / 0.8); } }
   if (lensS > 0) { const sp = lensC.clone().project(camera); u.uLC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uLR.value = lensR; u.uLS.value = lensS; } else u.uLS.value = 0;
   bloom.strength = (bd ? 0.2 : 0.55) + Math.min(0.8, flashW * 0.8);
 }
