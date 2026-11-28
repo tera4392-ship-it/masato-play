@@ -1,0 +1,7 @@
+node_modules
+out/c/
+out/cold*.mp4
+out/*_noaudio.mp4
+out/se.wav
+out/audio_*.wav
+out/l*.txt
