@@ -6,3 +6,7 @@ out/*_noaudio.mp4
 out/se.wav
 out/audio_*.wav
 out/l*.txt
+out/main_noaudio.mp4
+out/full_noaudio.mp4
+out/lm.txt
+out/lf.txt
