@@ -7,7 +7,8 @@ const lam = (c, e = 0x000000) => new THREE.MeshLambertMaterial({ color: c, emiss
 const bas = c => new THREE.MeshBasicMaterial({ color: c, toneMapped: false });
 function box(g, w, h, d, x, y, z, mat, ry = 0) { const m = new THREE.Mesh(BOX, mat); m.scale.set(w, h, d); m.position.set(x, y + h / 2, z); m.rotation.y = ry; g.add(m); return m; }
 
-export function buildShrine() {
+export function buildShrine(opts = {}) {
+  const lite = !!opts.lite;
   const g = new THREE.Group();
   const M = {
     stone: lam(0x2a2630, 0x0a0a10), stone2: lam(0x3a3440, 0x120e16), red: lam(0xb02a1a, 0x4a0e08), redGlow: new THREE.MeshBasicMaterial({ color: 0xff6a2a, toneMapped: false }),
@@ -73,13 +74,14 @@ export function buildShrine() {
     for (const sx of [-1, 1]) { for (let i = 0; i < 5; i++) { const a = i * 0.45; box(sg, 0.4 - i * 0.05, 0.4 - i * 0.05, 0.8, sx * (0.9 + Math.sin(a) * 1.3 + i * 0.1), 0.9 + (1 - Math.cos(a)) * 1.2, 0.2 - i * 0.05, i > 3 ? M.tip : M.bone).rotation.z = -sx * a * 0.6; } }
     g.add(sg); return sg;
   }
-  for (let i = 0; i < 120; i++) { const a = rnd(i * 2.3) * PI * 2; const r = 21 + rnd(i * 5.1) * 7 + (rnd(i * 3.3) < 0.3 ? 5 : 0); const x = Math.cos(a) * r * 1.02, z = Math.sin(a) * r * 0.86; if (Math.abs(x) < 6 && z > 14) continue; skull(x, rnd(i * 7.7) * 1.8, z, a + PI / 2 + (rnd(i) - 0.5) * 1.2, 0.9 + rnd(i * 9) * 0.7); }
-  for (let i = 0; i < 40; i++) skull((rnd(i * 4.4) - 0.5) * 34, BASE + 0.1 + rnd(i) * 0.4, 12.6 + rnd(i * 6.1) * 3.5, (rnd(i * 8.1) - 0.5) * 1.5, 0.7); // 正面の段にも
+  if (!lite) for (let i = 0; i < 120; i++) { const a = rnd(i * 2.3) * PI * 2; const r = 21 + rnd(i * 5.1) * 7 + (rnd(i * 3.3) < 0.3 ? 5 : 0); const x = Math.cos(a) * r * 1.02, z = Math.sin(a) * r * 0.86; if (Math.abs(x) < 6 && z > 14) continue; skull(x, rnd(i * 7.7) * 1.8, z, a + PI / 2 + (rnd(i) - 0.5) * 1.2, 0.9 + rnd(i * 9) * 0.7); }
+  if (!lite) for (let i = 0; i < 40; i++) skull((rnd(i * 4.4) - 0.5) * 34, BASE + 0.1 + rnd(i) * 0.4, 12.6 + rnd(i * 6.1) * 3.5, (rnd(i * 8.1) - 0.5) * 1.5, 0.7); // 正面の段にも
   // ---- 四隅の黒い枯れ木の柱 ----
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const x = sx * 19.5, z = sz * 16.5; box(g, 0.9, 17, 0.9, x, 0, z, M.dark);
+  if (!lite) for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const x = sx * 19.5, z = sz * 16.5; box(g, 0.9, 17, 0.9, x, 0, z, M.dark);
     for (let b = 0; b < 14; b++) { const h = 5 + rnd(b * 3.7 + sx) * 11, a = rnd(b * 5.1 + sz) * PI * 2, L = 3 + rnd(b * 2.9) * 5; const m = box(g, 0.28, 0.28, L, x + Math.cos(a) * L * 0.4, h, z + Math.sin(a) * L * 0.4, M.dark); m.rotation.y = -a + PI / 2; m.rotation.x = -0.5; } }
   // ---- 軒先から吊るされた頭蓋骨 ----
-  for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) { const x = sx * (8 + k * 6.5), z = 20.6; box(g, 0.1, 5, 0.1, x, TOP - 4, z, M.dark); skull(x, TOP - 6.6, z, PI, 0.9); }
+  if (!lite) for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) { const x = sx * (8 + k * 6.5), z = 20.6; box(g, 0.1, 5, 0.1, x, TOP - 4, z, M.dark); skull(x, TOP - 6.6, z, PI, 0.9); }
+  if (opts.arena) { const [ax, az] = opts.arena; for (let i = 0; i < 60; i++) { const a = rnd(i * 2.9) * PI * 2, r = 13 + rnd(i * 5.7) * 30; const x = ax + Math.cos(a) * r, z = az + Math.sin(a) * r; skull(x, 0.0, z, rnd(i * 3.1) * PI * 2, 0.4 + rnd(i * 9) * 0.35); } }
   g.userData = { roofTop: RIDGE + 1.4, frontZ: FZ, base: BASE };
   return g;
 }

@@ -159,14 +159,15 @@ export function buildWorld(scene) {
   (() => {
     const g = new THREE.Group(); W.env.K = { g, fog: [0x2a0610, 70, 340], hemi: [0xff6a50, 0x0a3a44, 0.7], sun: [0xff8a60, 0.5] };
     const sky = shrineSky(); g.add(sky); W.anim.skyK = sky;
-    const shrine = buildShrine(); g.add(shrine);
-    const refl = buildShrine(); refl.scale.y = -1; g.add(refl); // 水面への映り込み
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ color: 0x0a4a58, emissive: 0x041e26, transparent: true, opacity: 0.86 })); water.rotation.x = -PI / 2; water.position.y = 0.02; g.add(water);
+    // 虎杖の領域=宿儺の伏魔御廚子。祠は虎杖の背後(南)にそびえ、正面の口が闘技場(交差点の位置)を向く
+    const shrine = buildShrine({ arena: [0, 72] }); const refl = buildShrine({ lite: true }); refl.scale.y = -1;
+    const shr = new THREE.Group(); shr.position.set(0, 0, 70); shr.rotation.y = PI; shr.add(shrine, refl); g.add(shr);
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ color: 0x0c5a6a, emissive: 0x08323c, transparent: true, opacity: 0.88 })); water.rotation.x = -PI / 2; water.position.y = 0.02; g.add(water);
     const ft = ptex(4, (x) => { x.fillStyle = '#0a3a44'; x.fillRect(0, 0, 4, 4); x.fillStyle = '#12606e'; x.fillRect(0, 0, 1, 1); x.fillRect(2, 2, 1, 1); }, 160);
     const tile = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ map: ft, transparent: true, opacity: 0.35 })); tile.rotation.x = -PI / 2; tile.position.y = 0.04; g.add(tile);
     for (let i = 0; i < 14; i++) { const a = (i / 14) * PI * 2 + 0.2, d = 190 + rnd(i * 3.3) * 50; box(g, 6, 34 + rnd(i) * 16, 6, Math.cos(a) * d, 0, Math.sin(a) * d, lam(0x1a6a78, 0x0a3a44)); } // 遠くの青緑の石柱
-    for (let i = 0; i < 18; i++) { const a = rnd(i * 4.1) * PI * 2, d = 40 + rnd(i * 7.7) * 70; const m = box(g, 2 + rnd(i) * 3, 2 + rnd(i * 2) * 3, 2 + rnd(i * 3) * 3, Math.cos(a) * d, 14 + rnd(i * 5) * 40, Math.sin(a) * d, lam(0x08060a, 0x020204)); m.rotation.set(rnd(i) * 3, rnd(i * 2) * 3, rnd(i * 3) * 3); } // 浮かぶ黒い岩
-    const pl = new THREE.PointLight(0xff7a3a, 90, 40, 1.4); pl.position.set(0, 8, 14); g.add(pl); const pl2 = new THREE.PointLight(0xff3a2a, 12, 50, 1.4); pl2.position.set(0, 30, 6); g.add(pl2);
+    for (let i = 0; i < 18; i++) { const a = rnd(i * 4.1) * PI * 2, d = 85 + rnd(i * 7.7) * 90; const m = box(g, 2 + rnd(i) * 3, 2 + rnd(i * 2) * 3, 2 + rnd(i * 3) * 3, Math.cos(a) * d, 14 + rnd(i * 5) * 40, Math.sin(a) * d, lam(0x08060a, 0x020204)); m.rotation.set(rnd(i) * 3, rnd(i * 2) * 3, rnd(i * 3) * 3); } // 浮かぶ黒い岩
+    const pl = new THREE.PointLight(0xff7a3a, 90, 40, 1.4); pl.position.set(0, 8, 56); g.add(pl); const pl3 = new THREE.PointLight(0xff8a50, 45, 34, 1.3); pl3.position.set(0, 9, 0); g.add(pl3); const pl2 = new THREE.PointLight(0xff3a2a, 12, 50, 1.4); pl2.position.set(0, 30, 64); g.add(pl2);
     W.shrine = { roofTop: shrine.userData.roofTop, frontZ: shrine.userData.frontZ };
     scene.add(g);
   })();

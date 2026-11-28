@@ -301,7 +301,7 @@ let flashW = 0, invert = 0, shakeAmp = 0, shockT = -9, shockPos = V3(), bfD = -1
 const bodyOf = (C, y = 0.45) => worldOf(C.torso, [0, y, 0]);
 const head = C => worldOf(C.head, [0, 0, 0]);
 const handW = (C, side) => worldOf(side === 'R' ? C.armR : C.armL, [0, -12 * PX - 0.05, 0]);
-function envAt(t) { if (t >= T.interior && t < T.cancel) return 'Y'; if (t >= T.domG2 + 0.35 && t < 45.5) return 'G'; return 'S'; }
+function envAt(t) { if (t >= T.interior && t < T.cancel) return 'K'; if (t >= T.domG2 + 0.35 && t < 45.5) return 'G'; return 'S'; }
 function armState(t) { // 切断された腕の弾道
   const d = t - T.sever; if (d < 0) return null;
   const o = V3(-0.36, 1.44, -4), v = V3(-4.5, 5.5, -3.5); const p = o.clone().addScaledVector(v, d); p.y -= 0.5 * 9 * d * d; if (p.y < 0.15) { p.y = 0.15; }
@@ -518,9 +518,10 @@ function shot(t, tvid) {
   else if (t < 19.0) { p = orbit(V3(0, 0, 0), 18, 4.5, 0, 1.9, t, 17.6, 19.0); l = V3(0, 3, 0); fov = 56; sh = 0.1; roll = 0.1; }
   else if (t < 20.5) { p = V3(0, 48, 0.01); l = V3(0, 0, 0); up = UPZ.clone(); fov = 52; sh = 0.06; }
   else if (t < 21.2) { p = V3(3, 10, 17); l = V3(0, 2.5, -4); fov = 60; sh = 0.3; roll = 0.06; }
-  else if (t < 22.0) { p = V(kf(t, [[21.2, [2.6, 1.7, 0.2]], [22.0, [3.4, 1.7, 1.4]]], lin)); l = V3(0, 1.4, -3.6); fov = 48; sh = 0.03; }
+  else if (t < 21.9) { p = V(kf(t, [[21.2, [-7, 2.4, -7]], [21.9, [-6, 2.0, -4]]], lin)); l = V(kf(t, [[21.2, [0, 12, 50]], [21.9, [0, 9, 48]]], lin)); fov = 74; sh = 0.04; }
+  else if (t < 22.0) { p = V3(3.4, 1.7, 1.4); l = V3(0, 1.4, -3.6); fov = 48; sh = 0.03; }
   else if (t < 22.7) { const as = armState(t); p = V(kf(t, [[22.0, [2.5, 4.2, 5.5]], [22.7, [-2.6, 3.8, 0.8]]], lin)); l = as ? as.p.clone() : gb.clone(); fov = 50; sh = 0.1; roll = 0.1; }
-  else if (t < 23.4) { p = V(kf(t, [[22.7, [2.8, 1.9, 0.0]], [23.4, [3.2, 1.6, -0.2]]], lin)); l = gh.clone().add(V3(0, -0.2, 0)); fov = 42; sh = 0.08; }
+  else if (t < 23.4) { p = V(kf(t, [[22.7, [15, 3.6, -1.5]], [23.4, [12, 3.0, -1.0]]], lin)); l = V3(0, 1.6, -1.2); fov = 58; sh = 0.06; }
   else if (t < 24.1) { p = V3(4.8, 1.8, mz + 0.4); l = V3(0, 1.5, mz); fov = 50; sh = 0.2; roll = 0.06; }
   else if (t < 24.8) { p = yp.clone().add(V3(0.9, 0.9, 2.3)); l = gb.clone(); fov = 52; sh = 0.2; roll = -0.1; }
   else if (t < 25.5) { p = gh.clone().add(V3(-1.3, 0.3, -1.2)); l = gb.clone().add(V3(0, 0.2, 0)); fov = 46; sh = 0.25; roll = 0.12; }
