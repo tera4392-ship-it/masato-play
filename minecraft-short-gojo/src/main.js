@@ -308,11 +308,12 @@ function armState(t) { // 切断された腕の弾道
   const dd = Math.min(d, 1.0); return { p, rx: dd * 9, rz: dd * 6 };
 }
 function updateScene(t, tvid) {
-  const env = envAt(t); setEnv(env);
+  const env = q.get('env') || envAt(t); setEnv(env);
   const ds = clamp((t - 46) / 7); const sky = WORLD.anim.skyS.material.uniforms;
   sky.t.value.set(0x02030c).lerp(new THREE.Color(0x2a4a9a), smooth(ds)); sky.b.value.set(0x3a1f5a).lerp(new THREE.Color(0xffa070), smooth(ds));
   if (env === 'S') { ENV.S.g.visible = true; scene.fog.color.set(0x1a1030).lerp(new THREE.Color(0xc88a80), smooth(ds)); hemi.intensity = 0.95 + 0.4 * smooth(ds); }
   WORLD.anim.skyG.material.uniforms.time.value = t;
+  WORLD.anim.skyK.material.uniforms.time.value = tvid;
   WORLD.anim.blink.forEach(b => (b.m.visible = Math.sin(tvid * 3 + b.ph) > 0.2));
   WORLD.anim.cut.forEach(c => { const tt = t - T.bldCut; const sx = c.sx;
     if (tt < 0) { c.up.position.copy(c.base0); c.up.rotation.set(0, 0, 0); c.up.visible = true; c.edge.visible = false; return; }

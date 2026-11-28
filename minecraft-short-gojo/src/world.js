@@ -1,5 +1,6 @@
 // ステージ: 夜の渋谷スクランブル交差点 / 五条の領域(無量空処) / 虎杖の領域
 import * as THREE from 'three';
+import { buildShrine, shrineSky } from './shrine.js';
 const PI = Math.PI;
 const rnd = s => { const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 const lam = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
@@ -152,6 +153,21 @@ export function buildWorld(scene) {
     const st = lam(0x14101a), fist = lam(0x3a3040);
     for (let i = 0; i < 18; i++) { const a = (i / 18) * PI * 2, d = 30, x = Math.cos(a) * d, z = Math.sin(a) * d; box(g, 2.4, 9, 2.4, x, 0, z, st); box(g, 3.4, 2.4, 3.4, x, 9, z, fist); for (let k = 0; k < 4; k++) box(g, 0.8, 0.8, 1.6, x - 1.2 + k * 0.8, 10, z, fist); }
     const sun = new THREE.Mesh(new THREE.SphereGeometry(22, 20, 14), bas(0xff3a2a, { fog: false })); sun.position.set(0, 14, -180); g.add(sun);
+    scene.add(g);
+  })();
+  // ======== 伏魔御廚子(宿儺の領域): 赤黒い雷雲の空・青緑の水面に映る祠 ========
+  (() => {
+    const g = new THREE.Group(); W.env.K = { g, fog: [0x2a0610, 70, 340], hemi: [0xff6a50, 0x0a3a44, 0.7], sun: [0xff8a60, 0.5] };
+    const sky = shrineSky(); g.add(sky); W.anim.skyK = sky;
+    const shrine = buildShrine(); g.add(shrine);
+    const refl = buildShrine(); refl.scale.y = -1; g.add(refl); // 水面への映り込み
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ color: 0x0a4a58, emissive: 0x041e26, transparent: true, opacity: 0.86 })); water.rotation.x = -PI / 2; water.position.y = 0.02; g.add(water);
+    const ft = ptex(4, (x) => { x.fillStyle = '#0a3a44'; x.fillRect(0, 0, 4, 4); x.fillStyle = '#12606e'; x.fillRect(0, 0, 1, 1); x.fillRect(2, 2, 1, 1); }, 160);
+    const tile = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshLambertMaterial({ map: ft, transparent: true, opacity: 0.35 })); tile.rotation.x = -PI / 2; tile.position.y = 0.04; g.add(tile);
+    for (let i = 0; i < 14; i++) { const a = (i / 14) * PI * 2 + 0.2, d = 190 + rnd(i * 3.3) * 50; box(g, 6, 34 + rnd(i) * 16, 6, Math.cos(a) * d, 0, Math.sin(a) * d, lam(0x1a6a78, 0x0a3a44)); } // 遠くの青緑の石柱
+    for (let i = 0; i < 18; i++) { const a = rnd(i * 4.1) * PI * 2, d = 40 + rnd(i * 7.7) * 70; const m = box(g, 2 + rnd(i) * 3, 2 + rnd(i * 2) * 3, 2 + rnd(i * 3) * 3, Math.cos(a) * d, 14 + rnd(i * 5) * 40, Math.sin(a) * d, lam(0x08060a, 0x020204)); m.rotation.set(rnd(i) * 3, rnd(i * 2) * 3, rnd(i * 3) * 3); } // 浮かぶ黒い岩
+    const pl = new THREE.PointLight(0xff7a3a, 90, 40, 1.4); pl.position.set(0, 8, 14); g.add(pl); const pl2 = new THREE.PointLight(0xff3a2a, 12, 50, 1.4); pl2.position.set(0, 30, 6); g.add(pl2);
+    W.shrine = { roofTop: shrine.userData.roofTop, frontZ: shrine.userData.frontZ };
     scene.add(g);
   })();
   Object.values(W.env).forEach(e => (e.g.visible = false));
