@@ -55,10 +55,15 @@ export function buildShrine() {
   box(g, 8.8, 1.2, 1.8, 0, BASE + 0.1, FZ - 0.2, M.lip); box(g, 8.8, 1.4, 1.8, 0, BASE + PH - 1.0, FZ - 0.2, M.lip); // 唇
   box(g, 6, 0.8, 1.4, 0, BASE + 1.0, FZ - 0.4, M.tongue);
   for (let i = 0; i < 11; i++) { const x = -4 + i * 0.8; const h = 1.8 + rnd(i * 3.1) * 1.4; box(g, 0.62, h, 0.7, x, BASE + 1.3, FZ + 0.1, M.tooth); box(g, 0.62, 1.8 + rnd(i * 5.3) * 1.6, 0.7, x, BASE + PH - 0.8 - (1.8 + rnd(i * 5.3) * 1.6), FZ + 0.1, M.tooth); }
-  for (const sx of [-1, 1]) { // 目玉(大きな白い球+黒い瞳)と、まわりの牙の口
-    const ex = sx * 9.15, ey = BASE + 6.6; const eye = new THREE.Mesh(new THREE.SphereGeometry(2.7, 28, 20), M.eye); eye.position.set(ex, ey, FZ - 0.4); eye.scale.z = 0.7; g.add(eye);
-    const pu = new THREE.Mesh(new THREE.CircleGeometry(0.95, 20), M.pupil); pu.position.set(ex + sx * -0.3, ey, FZ + 1.5); g.add(pu); const ring = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.5, 20), lam(0x8a2a20, 0x3a0e08)); ring.position.set(ex + sx * -0.3, ey, FZ + 1.49); g.add(ring);
-    for (let i = 0; i < 16; i++) { const a = (i / 16) * PI * 2; box(g, 0.55, 1.5, 0.55, ex + Math.cos(a) * 3.3, ey + Math.sin(a) * 3.3, FZ - 0.3, M.tooth).rotation.z = a - PI / 2; }
+  for (const sx of [-1, 1]) { // 左右の口: 丸く開いた口。暗い赤の口の中、分厚い唇の輪、内向きにびっしり並ぶ牙、舌
+    const mx = sx * 9.15, my = BASE + 6.6; const mg = new THREE.Group(); mg.position.set(mx, my, FZ - 0.3); mg.scale.set(0.92, 1.35, 1); g.add(mg);
+    const inside = new THREE.Mesh(new THREE.CircleGeometry(2.9, 28), M.mouth); inside.position.z = -0.3; mg.add(inside); // 口の中
+    const throat = new THREE.Mesh(new THREE.CircleGeometry(1.7, 24), new THREE.MeshBasicMaterial({ color: 0x14020a, toneMapped: false })); throat.position.z = -0.25; mg.add(throat);
+    const tg = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 12), M.tongue); tg.scale.set(1.5, 0.75, 0.5); tg.position.set(0, -1.35, 0.1); mg.add(tg); // 舌
+    for (let k = 0; k < 28; k++) { const a = (k / 28) * PI * 2; const m = new THREE.Mesh(BOX, M.lip); m.scale.set(1.25, 1.25, 1.2); m.position.set(Math.cos(a) * 3.45, Math.sin(a) * 3.45, 0.1); m.rotation.z = a; mg.add(m); } // 唇
+    for (let k = 0; k < 22; k++) { const a = (k / 22) * PI * 2 + 0.06; if (Math.abs(Math.cos(a)) > 0.86) continue; // 口の両端は唇だけ。牙は上と下の弧に並べる
+      const L = 1.5 + rnd(k * 3.7 + sx) * 0.9; const m = new THREE.Mesh(BOX, M.tooth); m.scale.set(0.78, L, 0.7); m.position.set(Math.cos(a) * (2.95 - L / 2 + 0.15), Math.sin(a) * (2.95 - L / 2 + 0.15), 0.4); m.rotation.z = a - PI / 2; mg.add(m); }
+    const cheek = new THREE.Mesh(BOX, M.lip); cheek.scale.set(0.1, 0.1, 0.1); mg.add(cheek);
   }
   // ---- 頭蓋骨の山(牛の頭蓋骨+角) ----
   function skull(x, y, z, ry, s = 1) {
