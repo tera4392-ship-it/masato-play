@@ -61,6 +61,10 @@ const ghostsG = [0, 1, 2].map(() => makeGojo(scene)), ghostsY = [0, 1, 2].map(()
 [[ghostsG, 0x60b0ff], [ghostsY, 0xff3040]].forEach(([arr, col]) => arr.forEach((c, i) => { c.root.visible = false; c.shadow.visible = false; c.mats.forEach(m => { m.transparent = true; m.opacity = [0.4, 0.25, 0.14][i]; m.depthWrite = false; m.color.set(col); m.emissive.set(col); m.emissiveIntensity = 0.5; }); }));
 const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(9, 14), new THREE.MeshBasicMaterial({ color: 0x03040a })); backdrop.visible = false; scene.add(backdrop); let bdOn = false;
 const handLight = new THREE.PointLight(0xdfeaff, 0, 6, 1.5); scene.add(handLight);
+const auraY = makeYuji(scene); auraY.mats.forEach(m => { m.transparent = true; m.opacity = 0.5; m.depthWrite = false; m.blending = THREE.AdditiveBlending; m.color.set(0xffe8a0); m.emissive.set(0xffd060); }); auraY.root.visible = false; auraY.shadow.visible = false; // 領域展延(体を包む光)
+const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 36), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false, uniforms: { a: { value: 1 }, time: { value: 0 } },
+  vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+  fragmentShader: 'uniform float a,time; varying vec3 vN; varying vec3 vP; void main(){ float f=pow(1.0-abs(vN.z),2.4); float g=0.5+0.5*sin(vP.y*22.0+time*3.0)*sin(vP.x*17.0-time*2.0+vP.z*9.0); vec3 c=vec3(1.0,0.92,0.6)*(0.035+f*0.85+g*0.05); gl_FragColor=vec4(c*a,1.0);}' })); dome.visible = false; scene.add(dome); // 新陰流簡易領域
 const flyingArm = makeLimb(scene, G.paint); const spear = makeSpear(scene);
 
 const PRE = {
@@ -94,6 +98,12 @@ const PRE = {
   spearL: { Lf: 2.5, Lab: .1, Rf: .05, Rab: .1, lean: -.1, lr: .2, ll: -.2 },
   thrust: { Lf: 1.5, Lab: 0, lean: 1.0, lr: 1.0, ll: -.7, twist: .4 },
   koF: { ko: -1, Rf: .1, Lf: .1, Rab: .4, Lab: .4 },
+  iai: { Rf: 1.0, Rab: .3, Lf: .6, Lab: .3, lean: .25, lr: .8, ll: -.8, headP: .1 },
+  kick: { lr: 1.5, ll: -.3, lean: -.3, Rf: .9, Lf: .2, Lab: .6 },
+  sideL: { lean: .3, twist: .6, Lab: .8, lr: .4, ll: -.4 },
+  pulled: { lean: .9, Rf: 1.2, Lf: 1.6, Rab: .6, Lab: .4, lr: .9, ll: .6, headP: -.2 },
+  redwind: { Rf: -1.2, Lf: .6, lean: -.25, twist: .5, lr: -.5, ll: .5 },
+  flipaim: { flip: 3.14159, Lf: 1.57, Lab: 0, Rf: .4, Rab: .5, lean: .1, lr: .2, ll: -.2 },
 };
 const POSEK = ['Rf', 'Rab', 'Lf', 'Lab', 'lr', 'll', 'lean', 'twist', 'headP', 'headY', 'ko', 'flip', 'spin', 'roll'];
 const DEF = { Rf: .05, Rab: .1, Lf: .05, Lab: .1 };
@@ -103,11 +113,26 @@ function compile(keys) {
     for (const n of POSEK) p[n] ??= 0; if (o.flip !== undefined) p.flip = o.flip; if (o.spin !== undefined) p.spin = o.spin; return { t: k[0], p, pos: { ...cur }, snap: o.e === 'snap' }; });
 }
 function evalActor(keys, t, bob) {
+  // 滑らかな曲線補間(Catmull-Rom): キーフレームごとに止まらず、速度が途切れない=ヌルヌル動く。スナップ(瞬間移動)は補間しない。
   let i = 0; while (i < keys.length - 1 && keys[i + 1].t <= t) i++;
   const a = keys[i], b = keys[Math.min(i + 1, keys.length - 1)];
-  const u = a === b || b.snap ? 0 : smooth(clamp((t - a.t) / (b.t - a.t)));
-  const s = {}; for (const n of POSEK) s[n] = lerp(a.p[n], b.p[n], u);
-  for (const n of ['x', 'y', 'z', 'yaw']) s[n] = lerp(a.pos[n], b.pos[n], u);
+  const s = {};
+  const names = [...POSEK, 'x', 'y', 'z', 'yaw'];
+  const val = (k, n) => (n === 'x' || n === 'y' || n === 'z' || n === 'yaw') ? k.pos[n] : k.p[n];
+  if (a === b || b.snap) { for (const n of names) s[n] = val(a, n); }
+  else {
+    const h = b.t - a.t, u = clamp((t - a.t) / h), u2 = u * u, u3 = u2 * u; const prev = keys[i - 1], next = keys[i + 2];
+    const h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2, h11 = u3 - u2;
+    for (const n of names) {
+      const p0 = val(a, n), p1 = val(b, n), sl = (p1 - p0) / h;
+      let m0 = (prev && !a.snap) ? (p1 - val(prev, n)) / (b.t - prev.t) : sl;
+      let m1 = (next && !next.snap) ? (val(next, n) - p0) / (next.t - a.t) : sl;
+      m0 *= 0.85; m1 *= 0.85;
+      if (m0 * sl < 0) m0 = 0; if (m1 * sl < 0) m1 = 0; // 反対向きに膨らまない(行き過ぎ防止)
+      let v = h00 * p0 + h10 * h * m0 + h01 * p1 + h11 * h * m1; const lo = Math.min(p0, p1), hi = Math.max(p0, p1), ex = 0.18 * (hi - lo);
+      s[n] = Math.min(hi + ex, Math.max(lo - ex, v));
+    }
+  }
   const br = Math.sin(t * 2.4 + bob) * 0.02; s.lean += br; s.Rf += br; s.Lf += br; return s;
 }
 // 五条(yaw 0, 北側)
@@ -117,7 +142,13 @@ const GK = compile([
   [17.65, 'strain'], [20.5, 'strain'], [20.8, 'hurt'], [21.4, 'stagger'], [22.0, 'guard'], [22.3, 'hurt'], [22.8, 'stagger'],
   [23.5, 'stagger', { z: -4.0 }], [23.7, 'hurt', { z: -4.7 }], [24.2, 'stagger'], [24.4, 'hurt', { z: -5.4 }], [24.9, 'stagger'], [25.1, 'hurt', { z: -6.1 }], [25.6, 'stagger'], [25.8, 'hurt', { z: -6.8 }],
   [26.3, 'stagger'], [26.5, 'hurt', { z: -7.4 }], [27.0, 'stagger'], [27.2, 'hurt'], [27.6, 'frozen'], [29.6, 'frozen'], [29.8, 'spearL'], [30.0, 'thrust'], [30.5, 'idle'], [32.9, 'guard'], [33.3, 'windL'], [33.5, 'punchL'], [34.1, 'punchL'], [34.8, 'idle'],
-  [36.0, 'idle'], [36.2, 'sealL'], [37.5, 'sealL'], [37.8, 'idle'], [45.0, 'idle'],
+  [36.0, 'idle'], [36.2, 'sealL'], [37.5, 'sealL'], [37.95, 'idle'],
+  [38.9, 'idle', { z: -7.4 }], [39.3, 'lunge', { z: -4.0 }], [39.75, 'windR', { z: 1.2 }],
+  [39.9, 'punchR', { z: 1.6 }], [40.2, 'guard'], [40.45, 'sideL', { x: -0.5 }], [40.75, 'guard', { x: 0 }],
+  [41.0, 'punchL', { z: 1.7 }], [41.3, 'guard'], [41.55, 'windR'], [42.0, 'kick', { z: 1.8 }], [42.3, 'guard'],
+  [42.6, 'hurt', { z: 1.0 }], [42.9, 'guard', { z: 1.4 }], [43.2, 'punchR', { z: 1.8 }], [43.45, 'guard'], [43.7, 'punchR', { z: 1.7 }],
+  [44.0, 'stagger', { z: 0.2 }], [44.3, 'aimL', { z: -3.0 }], [45.0, 'aimL'], [45.12, 'redwind', { z: -2.8 }], [45.35, 'punchR', { z: -1.75 }], [45.9, 'punchR'], [46.4, 'idle', { z: -3 }],
+  [51.0, 'idle'], [51.73, 'idle', { e: 'snap' }], [51.74, 'flipaim', { x: 0, y: 2.2, z: 7.8, yaw: PI, e: 'snap' }], [52.8, 'flipaim'], [53.4, 'landing', { y: 0.2, z: 7.8, yaw: 0 }], [54.4, 'idle', { y: 0 }], [59, 'idle'],
 ]);
 // 虎杖(yaw π, 南側)
 const YK = compile([
@@ -126,8 +157,15 @@ const YK = compile([
   [19.8, 'strain'], [20.2, 'up'], [20.5, 'slashY'], [21.2, 'idle'], [21.7, 'up'], [22.0, 'slashY'], [22.4, 'lunge', { z: 3 }], [22.9, 'windR', { z: -1.5 }],
   [23.5, 'punchR', { z: -2.7 }], [23.8, 'punchR'], [24.0, 'windL'], [24.2, 'punchL', { z: -3.4 }], [24.5, 'punchL'], [24.7, 'windR'], [24.9, 'punchR', { z: -4.1 }], [25.2, 'punchR'], [25.4, 'windL'], [25.6, 'punchL', { z: -4.8 }],
   [25.9, 'punchL'], [26.0, 'windR'], [26.3, 'punchR', { z: -5.5 }], [26.8, 'punchR'], [27.0, 'palms', { z: -6.1 }], [27.6, 'palms'], [28.4, 'guard'], [29.9, 'guard'], [30.1, 'hurt', { z: -5.4 }], [30.5, 'stagger', { z: -3 }], [31.5, 'guard', { z: -2.5 }],
-  [32.5, 'windR'], [33.2, 'lunge', { z: -5.0 }], [33.5, 'punchR', { z: -6.1 }], [33.7, 'tumble1', { z: -5.5, y: 0.8 }], [34.1, 'tumble2', { z: -1, y: 1.6 }], [34.6, 'tumble3', { z: 3, y: 1.2 }], [35.0, 'dazed', { z: 4.2, y: 0 }], [37.7, 'dazed'], [37.8, 'sealY'], [38.8, 'sealY'], [39.0, 'frozen'],
-  [42.8, 'frozen'], [43.5, 'kneel'], [45.0, 'kneel'], [46.0, 'kneel'],
+  [32.5, 'windR'], [33.2, 'lunge', { z: -5.0 }], [33.5, 'punchR', { z: -6.1 }], [33.7, 'tumble1', { z: -5.5, y: 0.8 }], [34.1, 'tumble2', { z: -1, y: 1.6 }], [34.6, 'tumble3', { z: 3, y: 1.2 }], [35.0, 'dazed', { z: 4.2, y: 0 }], [37.6, 'dazed'],
+  [37.95, 'iai', { z: 3.6 }], [38.7, 'iai'], [38.85, 'guard'], [39.6, 'guard', { z: 3.1 }],
+  [39.9, 'guard', { z: 3.35 }], [40.2, 'guard', { z: 3.1 }], [40.45, 'punchL', { z: 3.0 }], [40.8, 'guard'], [41.0, 'guard', { z: 3.3 }], [41.3, 'windR'],
+  [41.5, 'kick', { z: 3.1 }], [41.85, 'guard'], [42.0, 'sideL', { x: 0.4 }], [42.3, 'guard', { x: 0 }], [42.6, 'punchR', { z: 3.0 }], [42.9, 'guard'],
+  [43.2, 'stagger', { z: 3.5 }], [43.5, 'guard', { z: 3.2 }], [43.7, 'punchR', { z: 3.2 }], [44.0, 'stagger', { z: 4.4 }], [44.3, 'guard'],
+  [44.7, 'pulled', { z: 4.2 }], [45.0, 'pulled', { z: 0.3 }], [45.3, 'pulled', { z: -1.6, y: 0 }],
+  [45.4, 'hurt', { z: -1.5 }], [45.65, 'tumble1', { z: 2.5, y: 1.4 }], [46.0, 'tumble3', { z: 7.5, y: 0.9 }], [46.35, 'kneel', { z: 9.0, y: 0 }],
+  [46.45, 'sealY', { z: 9.0 }], [47.4, 'sealY'], [47.55, 'frozen'], [48.2, 'frozen'], [48.5, 'kneel'], [49.9, 'kneel'], [50.4, 'guard'], [51.9, 'guard'],
+  [52.4, 'hurt', { z: 9.4 }], [52.7, 'tumble1', { z: 16, y: 1.5 }], [53.2, 'tumble2', { z: 30, y: 5 }], [53.8, 'tumble3', { z: 44, y: 2 }], [54.2, 'ko', { z: 48, y: 0 }], [60, 'ko'],
 ]);
 
 // ---------- エフェクト基盤 ----------
@@ -200,7 +238,7 @@ burst(T.cancel, [0, 6, -6], 260, { speed: 18, up: 5, life: 2.4, size: 0.9, g: 8,
 for (let k = 0; k < 6; k++) burst(T.heal + k * 0.35, [0, 0.2, -7.4], 16, { speed: 0.7, up: 3.0, life: 1.8, size: 0.12, g: -0.5, cols: [0x40ff80, 0xa0ffc0, 0x30e070], seed: 50 + k, ground: false, spread: 4 });
 burst(T.counter, [0, 1.4, -6.1], 170, { speed: 15, up: 4, life: 2.0, size: 0.5, g: 6, cols: [0x4aa8ff, 0xffffff, 0x101010, 0x9ad0ff, 0xff2030], seed: 60 });
 burst(T.whiteEyes - 0.2, [0, 0.2, 4.2], 50, { speed: 6, up: 3, life: 1.4, size: 0.35, g: 9, cols: [0x5a5c68, 0x8a8c98, 0x3a3c48], seed: 61 });
-burst(T.kneel, [0, 0.2, 4.2], 40, { speed: 4, up: 2, life: 1.4, size: 0.3, g: 9, cols: [0x5a5c68, 0x8a8c98], seed: 62 });
+burst(T.kneel, [0, 0.2, 9.0], 40, { speed: 4, up: 2, life: 1.4, size: 0.3, g: 9, cols: [0x5a5c68, 0x8a8c98], seed: 62 });
 for (let k = 0; k < 14; k++) burst(T.interior + k * 0.65, [(rnd(k) - 0.5) * 18, 0.4, (rnd(k * 2) - 0.5) * 22], 8, { speed: 0.6, up: 4, life: 2.5, size: 0.3, g: -0.3, cols: [0x000000, 0x1a0010], seed: 70 + k, ground: false, spread: 6 });
 
 
@@ -301,7 +339,7 @@ let flashW = 0, invert = 0, shakeAmp = 0, shockT = -9, shockPos = V3(), bfD = -1
 const bodyOf = (C, y = 0.45) => worldOf(C.torso, [0, y, 0]);
 const head = C => worldOf(C.head, [0, 0, 0]);
 const handW = (C, side) => worldOf(side === 'R' ? C.armR : C.armL, [0, -12 * PX - 0.05, 0]);
-function envAt(t) { if (t >= T.interior && t < T.cancel) return 'K'; if (t >= T.domG2 + 0.35 && t < 45.5) return 'G'; return 'S'; }
+function envAt(t) { if (t >= T.interior && t < T.cancel) return 'K'; if (t >= T.domG2 + 0.35 && t < T.domEnd) return 'G'; return 'S'; }
 function armState(t) { // 切断された腕の弾道
   const d = t - T.sever; if (d < 0) return null;
   const o = V3(-0.36, 1.44, -4), v = V3(-4.5, 5.5, -3.5); const p = o.clone().addScaledVector(v, d); p.y -= 0.5 * 9 * d * d; if (p.y < 0.15) { p.y = 0.15; }
@@ -309,7 +347,7 @@ function armState(t) { // 切断された腕の弾道
 }
 function updateScene(t, tvid) {
   const env = q.get('env') || envAt(t); setEnv(env);
-  const ds = clamp((t - 46) / 7); const sky = WORLD.anim.skyS.material.uniforms;
+  const ds = clamp((t - T.dawn) / 6); const sky = WORLD.anim.skyS.material.uniforms;
   sky.t.value.set(0x02030c).lerp(new THREE.Color(0x2a4a9a), smooth(ds)); sky.b.value.set(0x3a1f5a).lerp(new THREE.Color(0xffa070), smooth(ds));
   if (env === 'S') { ENV.S.g.visible = true; scene.fog.color.set(0x1a1030).lerp(new THREE.Color(0xc88a80), smooth(ds)); hemi.intensity = 0.95 + 0.4 * smooth(ds); }
   WORLD.anim.skyG.material.uniforms.time.value = t;
@@ -330,11 +368,13 @@ function updateScene(t, tvid) {
   G.armR.visible = t < T.sever; // 右腕は切断される
   const trem = t > T.poison && t < T.spearOn ? 0.035 : 0; if (trem) G.root.position.add(V3((rnd(Math.floor(tvid * 30)) - .5) * trem, 0, (rnd(Math.floor(tvid * 30) + 9) - .5) * trem));
   const pz = clamp((t - T.poison) / 0.4) * (t < T.heal + 1.6 ? 1 : 1 - smooth(clamp((t - T.heal - 1.6) / 1.0)));
-  setTint(G, 0x8a4aa8, 0.55 * pz); setTint(Y, 0xffffff, 0);
-  Y.whiteEyes.visible = t >= T.whiteEyes && t < 45.5;
+  setTint(G, 0x8a4aa8, 0.55 * pz);
+  Y.whiteEyes.visible = (t >= T.whiteEyes && t < 37.6) || (t >= T.muku && t < T.yDown + 0.5);
+  G.root.visible = !(t > T.tele + 0.02 && t < T.reappear - 0.01); // 瞬間移動の間は姿が消える
+  setTint(Y, 0x55ff88, t > T.reverse && t < T.reverse + 1.4 ? 0.3 * Math.sin((t - T.reverse) / 1.4 * PI) : 0);
   const uG = clamp((t - 14.6) / 0.7), uG2 = clamp((t - 36.3) / 0.7);
   setHand(G.handR, t > 14.5 && t < 17.7 ? 'cross' : 'none', tvid, uG); setHand(G.handL, t > 14.5 && t < 17.7 ? 'cup' : (t > 36.2 && t < 37.8 ? 'cross' : 'none'), tvid, t > 14.5 && t < 17.7 ? 1 : uG2);
-  const yS = (t > 15.6 && t < 18.0) || (t > 37.8 && t < 39.0); setHand(Y.handR, yS ? 'fist' : 'none', tvid); setHand(Y.handL, yS ? 'fist' : 'none', tvid);
+  const yS = (t > 15.6 && t < 18.0) || (t > T.yDomSeal && t < 47.5); setHand(Y.handR, yS ? 'fist' : 'none', tvid); setHand(Y.handL, yS ? 'fist' : 'none', tvid);
   // 腕・槍
   const as = armState(t); flyingArm.visible = !!as && t < 31; if (as) { flyingArm.position.copy(as.p); flyingArm.rotation.set(as.rx, 0.5, as.rz); }
   // 残像
@@ -381,6 +421,67 @@ function sigils(t, frame) {
   if (t > T.sealYdone + 0.1 && t < 18.0) { const k = clamp((t - T.sealYdone - 0.1) / 1.5); sigil('Y', V3(0, 0.06, 4), 1.0 + 10 * easeOut(k), 0.14 * (1 - 0.3 * k), t, 'y'); }
   // 完成の瞬間の閃光
   for (const [tt, col] of [[T.sealGdone, 0xaad0ff], [T.sealYdone, 0xff2a40]]) { const d = t - tt; if (d >= 0 && d < 0.3) { flashW = Math.max(flashW, 0.25 * (1 - d / 0.3)); shakeAmp = Math.max(shakeAmp, 0.2 * (1 - d / 0.3)); } }
+}
+
+let caBoost = 0;
+function lateFx(t, tvid, frame) {
+  caBoost = 0; dome.visible = false; auraY.root.visible = false;
+  const yp = Y.root.position, gp = G.root.position, yb = bodyOf(Y), gb2 = bodyOf(G);
+  // ---- 新陰流簡易領域(金色のドームと足元の紋)+ 領域展延(体を包む光) ----
+  if (t >= T.simple && t < T.redHit) {
+    const k = smooth(clamp((t - T.simple) / 0.7)); const R = 3.3 * k;
+    dome.visible = true; dome.position.set(yp.x, 0, yp.z); dome.scale.setScalar(Math.max(R, 0.01)); dome.material.uniforms.time.value = tvid;
+    const c = V3(yp.x, 0.07, yp.z); bolts.circle(c, R, 0.07, 0xffe8a0, 48, 'y', t * 0.4); bolts.circle(c, R * 0.72, 0.04, 0xffffff, 40, 'y', -t * 0.5);
+    for (let k2 = 0; k2 < 8; k2++) { const a = t * 0.4 + (k2 / 8) * PI * 2; bolts.seg(c.clone().add(V3(Math.cos(a) * R * 0.3, 0, Math.sin(a) * R * 0.3)), c.clone().add(V3(Math.cos(a) * R * 0.98, 0, Math.sin(a) * R * 0.98)), 0.03, 0xffe8a0); }
+    const d0 = t - T.simple; if (d0 >= 0 && d0 < 0.6) { ringFx(c, 8 * easeOut(d0 / 0.6), 0xffe8a0, 0.8 * (1 - d0 / 0.6), 'y'); flashW = Math.max(flashW, 0.25 * (1 - d0 / 0.6)); shakeAmp = Math.max(shakeAmp, 0.3 * (1 - d0 / 0.6)); }
+    // 領域無量空処の筋がドームにぶつかって弾ける
+    for (let b = 0; b < 4; b++) { const a = rnd(frame * 3 + b) * PI * 2, rr = 3.35; const e = V3(yp.x + Math.cos(a) * rr, 0.6 + rnd(frame + b * 7) * 2.4, yp.z + Math.sin(a) * rr); bolts.bolt(e.clone().add(V3((rnd(b + frame) - .5) * 3, 0.5 + rnd(b * 5 + frame) * 2, (rnd(b * 3 + frame) - .5) * 3)), e, { n: 3, jit: .15, w: 0.02, color: b % 2 ? 0xbfe0ff : 0xffe8a0, seed: frame * 3 + b }); }
+  }
+  if (t >= T.amp && t < T.redHit) { auraY.root.visible = true; setPose(auraY, evalActor(YK, t, 1.7)); auraY.root.scale.setScalar(1.09 + 0.02 * Math.sin(tvid * 9)); auraY.mats.forEach(m => (m.opacity = 0.42 + 0.12 * Math.sin(tvid * 11)));
+    auraY.root.updateMatrixWorld(true); const k = clamp((t - T.amp) / 0.4); const f = yb.clone(); for (let b = 0; b < 6; b++) { const e = f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .3, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(0.7)); bolts.bolt(f, e, { n: 3, jit: .1, w: 0.02, color: 0xffe8a0, seed: frame * 3 + b }); } }
+  // ---- 肉弾戦のヒット(金と白の火花・ドームの波紋) ----
+  T.melee2.forEach((tm, i) => { const d = t - tm; if (d < 0 || d > 0.25) return; const c = yb.clone().lerp(gb2, 0.5); const lf = 1 - d / 0.25;
+    for (let b = 0; b < 9; b++) { const dir = V3(rnd(b * 1.7 + i) - .5, rnd(b * 2.9 + i) - .3, rnd(b * 4.1 + i) - .5).normalize(); bolts.bolt(c, c.clone().addScaledVector(dir, (0.8 + rnd(b * 5) * 1.6) * easeOut(clamp(d / 0.1))), { n: 3, jit: .15, w: 0.05 * lf + 0.01, color: b % 2 ? 0xffffff : 0xffe070, seed: frame * 3 + b + i * 9 }); }
+    if (t < T.redHit) ringFx(V3(yp.x, 0.5, yp.z), 3.3 * (0.8 + 0.4 * lf), 0xffe8a0, 0.5 * lf, 'y');
+    flashW = Math.max(flashW, 0.12 * lf); shakeAmp = Math.max(shakeAmp, (i === 7 ? 0.8 : 0.3) * lf); if (i === 7 && d < 0.02) invert = 1; });
+  // ---- 蒼(引き寄せ)→ 赫(赤いパンチ) ----
+  if (t >= T.blueOn && t < T.redHit + 0.1) { const fh = handW(G, 'L'); const g = smooth(clamp((t - T.blueOn) / 0.4)); const c = fh.clone().add(V3(0, 0.15, 0.55));
+    blueO.visible = true; blueO.position.copy(c); blueO.scale.setScalar(0.12 + 0.55 * g); blueO.material.uniforms.time.value = tvid; haloB.visible = true; haloB.position.copy(c); haloB.scale.setScalar((0.12 + 0.55 * g) * 7);
+    lensSet(c, 0.34, 0.15 + 0.35 * g); caBoost = 0.004 * g;
+    if (t >= T.pull) { const pts = []; for (let k = 0; k < 24; k++) pts.push(yb.clone().lerp(c, k / 23).add(V3((rnd(k + frame) - .5) * 0.18, (rnd(k * 3 + frame) - .5) * 0.18, 0))); ribB.set(pts, 0.32 * (1 - clamp((t - T.redHit) / 0.1))); shakeAmp = Math.max(shakeAmp, 0.25); } }
+  if (t >= 45.0 && t < T.redHit + 0.15) { const fr = handW(G, 'R'); const g = smooth(clamp((t - 45.0) / 0.35)); redO.visible = true; redO.position.copy(fr); redO.scale.setScalar(0.1 + 0.5 * g); redO.material.uniforms.time.value = tvid; haloR.visible = true; haloR.position.copy(fr); haloR.scale.setScalar((0.1 + 0.5 * g) * 7);
+    for (let b = 0; b < 5; b++) bolts.bolt(fr, fr.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(0.5 * g)), { n: 3, jit: .1, w: 0.03, color: 0xff4a40, seed: frame * 3 + b }); }
+  { const d = t - T.redHit; if (d >= 0 && d < 1.1) { const pos = yb.clone(); bfD = d; bfPos.copy(pos); const r = 0.4 + 2.4 * easeOut(clamp(d / 0.3)), op = 1 - smooth(clamp((d - 0.4) / 0.6));
+      bfBlack.position.copy(pos); bfBlack.scale.setScalar(r * 0.7); bfBlack.material.opacity = op * 0.9; bfBlack.visible = true; bfRed.material.color.set(0xff2a20); bfRed.position.copy(pos); bfRed.scale.setScalar(r); bfRed.material.opacity = op; bfRed.visible = true;
+      for (let b = 0; b < 18; b++) { const dir = V3(rnd(b * 1.7) - .5, rnd(b * 2.9) - .5, rnd(b * 4.1) - .5).normalize(); bolts.bolt(pos, pos.clone().addScaledVector(dir, (2 + 5 * rnd(b * 5)) * easeOut(clamp(d / 0.2))), { n: 6, jit: .4, w: 0.12 * (1 - clamp(d / 1.0)) + 0.01, color: b % 2 ? 0xff2a20 : 0xffffff, seed: frame * 3 + b }); }
+      ringFx(V3(pos.x, 0.5, pos.z), 12 * easeOut(clamp(d / 0.6)), 0xff4a40, 0.8 * (1 - clamp(d / 0.6)), 'y'); ringFx(pos, 9 * easeOut(clamp(d / 0.5)), 0xffffff, 0.6 * (1 - clamp(d / 0.5)), 'z');
+      flashW = Math.max(flashW, d < 0.03 ? 0.6 : 0.12 * (1 - clamp(d / 0.6))); shakeAmp = Math.max(shakeAmp, 1.0 * (1 - clamp(d / 0.9))); if (d < 0.02) invert = 1; fxLight.color.set(0xff3a2a); fxLight.position.copy(pos); fxLight.intensity = 60 * (1 - clamp(d / 0.8)); } }
+  if (t >= T.redHit && t < T.redHit + 1.2) { const d = t - T.redHit; if (d < 0.1) for (const sx of [0]) { /* 簡易領域が砕ける */ const c = V3(yp.x, 0.5, 3); } }
+  // ---- 虎杖の領域展開(無量空処に押し潰される)→ 脳に情報が流れ込む ----
+  { const d = t - T.yDomShell; if (d >= 0 && d < 1.0) { shF.visible = true; shF.position.set(yp.x, 0, yp.z); shF.scale.setScalar(Math.max(0.05, 0.4 + 6 * easeOut(clamp(d / 0.45)))); shF.children[0].material.uniforms.a.value = d < 0.45 ? 1 : 1 - smooth(clamp((d - 0.45) / 0.5));
+      if (d >= 0.45) for (let b = 0; b < 14; b++) { const a = rnd(b * 2.3 + frame) * PI * 2, e = (rnd(b * 5.1) - .5) * 2; const base = V3(yp.x + Math.cos(a) * 6 * Math.cos(e), 3 + Math.sin(e) * 6, yp.z + Math.sin(a) * 6 * Math.cos(e)); bolts.bolt(base, base.clone().add(V3((rnd(b + frame) - .5) * 4, (rnd(b * 3 + frame) - .5) * 4, (rnd(b * 5 + frame) - .5) * 4)), { n: 4, jit: .3, w: 0.05, color: b % 2 ? 0xbfe0ff : 0xff3a30, seed: frame * 3 + b }); }
+      shakeAmp = Math.max(shakeAmp, 0.3); } }
+  if (t >= T.muku && t < T.yDown + 0.3) { caBoost = 0.012 + 0.008 * Math.sin(tvid * 40); for (let b = 0; b < 8; b++) { const a = rnd(b * 3.3 + frame) * PI * 2; const from = V3(yp.x + Math.cos(a) * (6 + rnd(b) * 6), 1 + rnd(b * 5 + frame) * 7, yp.z + Math.sin(a) * (6 + rnd(b) * 6)); bolts.bolt(from, yb, { n: 6, jit: .3, w: 0.025, color: b % 3 ? 0xbfe0ff : 0xffffff, seed: frame * 3 + b }); } flashW = Math.max(flashW, 0.04 + 0.04 * Math.sin(tvid * 30)); }
+  // ---- 反転術式(緑の回復) ----
+  if (t >= T.reverse && t < T.reverse + 1.3) { const d = t - T.reverse; ringFx(V3(yp.x, 0.2, yp.z), 5 * easeOut(clamp(d / 1.0)), 0x50ff90, 0.6 * (1 - clamp(d / 1.0)), 'y'); }
+  // ---- 五条の瞬間移動 ----
+  { const d = t - T.tele; if (d >= 0 && d < 0.55) { const a = V3(0, 1.4, -3.0), b = V3(0, 1.4, 7.8); const life = 1 - d / 0.55; bolts.bolt(a, b, { n: 14, jit: .5, w: 0.14 * life + 0.01, color: 0xbfe0ff, seed: frame }); bolts.bolt(a, b, { n: 14, jit: .5, w: 0.06 * life, color: 0xffffff, seed: frame + 3 });
+      ringFx(V3(0, 1.0, -3.0), 4 * easeOut(clamp(d / 0.4)), 0xbfe0ff, 0.8 * life, 'y'); flashW = Math.max(flashW, d < 0.05 ? 0.35 : 0); }
+    const d2 = t - T.reappear; if (d2 >= 0 && d2 < 0.5) { ringFx(V3(0, 1.5, 7.8), 5 * easeOut(clamp(d2 / 0.4)), 0xffffff, 0.8 * (1 - d2 / 0.5), 'y'); ringFx(V3(0, 2.0, 7.8), 3 * easeOut(clamp(d2 / 0.4)), 0xbfe0ff, 0.7 * (1 - d2 / 0.5), 'z'); flashW = Math.max(flashW, d2 < 0.05 ? 0.4 : 0.1 * (1 - d2 / 0.5)); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - d2 / 0.5)); } }
+  // ---- 体を縦に反転して、至近距離から紫を体に叩き込む ----
+  if (t >= T.reappear && t < T.purpleFire + 2.0) {
+    const hL = handW(G, 'L'); const f1 = smooth(clamp((t - 51.85) / 0.45)); const fired = t >= T.purpleFire;
+    if (!fired) { const r = 0.6 * (1 - f1) + 0.03, a = (t - 51.85) * 14; for (const [mesh, hl, sg] of [[blueO, haloB, 1], [redO, haloR, -1]]) { const pp = hL.clone().add(V3(Math.cos(a + (sg > 0 ? 0 : PI)) * r, Math.sin(a + (sg > 0 ? 0 : PI)) * r * 0.6, 0.35)); mesh.visible = true; mesh.position.copy(pp); mesh.scale.setScalar(0.12 + 0.1 * f1); mesh.material.uniforms.time.value = tvid; hl.visible = true; hl.position.copy(pp); hl.scale.setScalar(1.2); }
+      if (f1 > 0.7) { const pc = hL.clone().add(V3(0, 0, 0.35)); purple.visible = true; purple.position.copy(pc); purple.scale.setScalar(0.1 + 0.45 * smooth((f1 - 0.7) / 0.3)); purple.material.uniforms.time.value = tvid; haloP.visible = true; haloP.position.copy(pc); haloP.scale.setScalar(2.4); lensSet(pc, 0.3, 0.3); } }
+    else { const d = t - T.purpleFire; const c = V3(0, 1.5, yp.z - 0.3); const r = 0.4 + 4.4 * easeOut(clamp(d / 0.9)); const op = 1 - smooth(clamp((d - 0.9) / 1.0));
+      purple.visible = true; purple.position.copy(c); purple.scale.setScalar(r); purple.material.uniforms.time.value = tvid; haloP.visible = true; haloP.position.copy(c); haloP.scale.setScalar(r * 5 * op + 0.1); lensSet(c, 0.34, 0.45 * op);
+      const pts = []; for (let k = 0; k < 28; k++) pts.push(V3(0, 1.5, c.z + 2 + k * 2.4)); ribP.set(pts, r * 0.9 * op);
+      const L = 80 * easeOut(clamp(d / 1.0)); bolts.seg(V3(0, 0.06, c.z), V3(0, 0.06, c.z + L), 2.2 * op + 0.05, 0x050008); bolts.seg(V3(-1.2, 0.07, c.z), V3(-1.2, 0.07, c.z + L), 0.14 * op, 0xa040ff); bolts.seg(V3(1.2, 0.07, c.z), V3(1.2, 0.07, c.z + L), 0.14 * op, 0xa040ff);
+      for (let k = 0; k < 4; k++) { const dd = d - k * 0.12; if (dd > 0) ringFx(V3(0, 0.3 + k * 0.4, c.z + dd * 22), 2 + dd * 4, k % 2 ? 0x7a30ff : 0xff70d0, 0.7 * (1 - clamp(dd / 1.2)), 'z'); }
+      ringFx(V3(0, 0.3, c.z), 20 * easeOut(clamp(d / 0.9)), 0xffffff, 0.9 * (1 - clamp(d / 0.9)), 'y');
+      flashW = Math.max(flashW, d < 0.04 ? 0.7 : 0.15 * (1 - clamp(d / 0.7))); shakeAmp = Math.max(shakeAmp, 1.1 * (1 - clamp(d / 1.2))); if (d < 0.02) invert = 1; fxLight.color.set(0xb060ff); fxLight.position.copy(c); fxLight.intensity = 90 * (1 - clamp(d / 1.0)); caBoost = 0.01 * (1 - clamp(d / 0.8)); } }
+  // ---- 領域の崩壊 ----
+  { const d = t - T.domEnd; if (d >= 0 && d < 0.5) { flashW = Math.max(flashW, 0.8 * (1 - d / 0.5)); shakeAmp = Math.max(shakeAmp, 0.5 * (1 - d / 0.5)); if (d < 0.05) invert = 1; } }
 }
 function updateFx(t, tvid) {
   bolts.begin(); flashW = 0; invert = 0; fxLight.intensity = 0; shakeAmp = 0; bfD = -1;
@@ -434,7 +535,7 @@ function updateFx(t, tvid) {
   // 証印(B案): 光の線で印を描く
   sigils(t, frame);
   if (false) { const f = handW(G, 'R').add(V3(0, 0.5, 0)); for (let b = 0; b < 4; b++) bolts.bolt(f, f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(0.3 + 0.3 * rnd(b + frame))), { n: 3, jit: .06, w: 0.008, color: b % 2 ? 0xffffff : 0x9ad0ff, seed: frame * 3 + b }); }
-  if ((t > 15.9 && t < 17.9) || (t > 37.8 && t < 39.0)) { for (const sd of ['R', 'L']) { const f = handW(Y, sd); for (let b = 0; b < 6; b++) { const e = f.clone().add(V3(rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5, rnd(frame * 7 + b) - .5).normalize().multiplyScalar(0.3 + 0.4 * rnd(b + frame)));
+  if ((t > 15.9 && t < 17.9) || (t > T.yDomSeal && t < 47.4)) { for (const sd of ['R', 'L']) { const f = handW(Y, sd); for (let b = 0; b < 6; b++) { const e = f.clone().add(V3(rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5, rnd(frame * 7 + b) - .5).normalize().multiplyScalar(0.3 + 0.4 * rnd(b + frame)));
       bolts.bolt(f, e, { n: 3, jit: .1, w: 0.012, color: 0xff1a38, seed: frame * 9 + b }); bolts.bolt(f, e, { n: 3, jit: .1, w: 0.005, color: 0x000000, seed: frame * 9 + b }); } } }
   if (t > 36.2 && t < 37.8) { const f = handW(G, 'L').add(V3(0, 0.5, 0)); for (let b = 0; b < 4; b++) bolts.bolt(f, f.clone().add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(0.3)), { n: 3, jit: .06, w: 0.008, color: 0x9ad0ff, seed: frame * 3 + b }); }
   // 領域展開(外から見た押し合い)
@@ -483,11 +584,9 @@ function updateFx(t, tvid) {
   if (t < T.counter || t > T.counter + 1.3) bfRed.material.color.set(0xff1030);
   // 五条の領域展開(一足早い)
   { const d = hit(T.domG2, 0.9); if (d >= 0) { shA.visible = true; shA.position.set(0, 0, -7.4); shA.scale.setScalar(0.5 + 70 * easeOut(clamp(d / 0.8))); shA.children[0].material.uniforms.a.value = 1.0 - smooth(clamp((d - 0.45) / 0.45)); flashW = Math.max(flashW, d < 0.12 ? 0.9 : 0.4 * (1 - d / 0.9)); shakeAmp = Math.max(shakeAmp, 0.7 * (1 - d / 0.9)); if (d < 0.06) invert = 1; } }
-  // 虎杖が遅れて領域展開を試みる→失敗
-  { const d = t - 38.2; if (d >= 0 && d < 0.8) { shF.visible = true; shF.position.set(0, 0, 4.2); const k = d / 0.8; shF.scale.setScalar(Math.max(0.01, 4 * Math.sin(k * PI * 0.5) * (1 - 0.8 * k * k))); shF.children[0].material.uniforms.a.value = 1.0 - smooth(clamp((k - 0.5) / 0.5)); for (let b = 0; b < 8; b++) bolts.bolt(V3(0, 1.3, 4.2), V3(0, 1.3, 4.2).add(V3(rnd(frame + b) - .5, rnd(frame * 3 + b) - .5, rnd(frame * 5 + b) - .5).normalize().multiplyScalar(3.4 * (1 - k * 0.6))), { n: 5, jit: .3, w: 0.06, color: b % 2 ? 0xff1030 : 0x000000, seed: frame + b }); } }
-  { const d = hit(45.5, 0.5); if (d >= 0) { flashW = Math.max(flashW, 0.7 * (1 - d / 0.5)); shakeAmp = Math.max(shakeAmp, 0.4 * (1 - d / 0.5)); } }
   // 領域G内の脈動
-  if (t > T.domG2 + 0.4 && t < 45.5) { const p = Math.sin(t * 2.4); flashW = Math.max(flashW, 0.04 * Math.max(0, p)); }
+  if (t > T.domG2 + 0.4 && t < T.domEnd) { const p = Math.sin(t * 2.4); flashW = Math.max(flashW, 0.04 * Math.max(0, p)); }
+  lateFx(t, tvid, frame);
 }
 
 // ---------- カメラ ----------
@@ -536,12 +635,25 @@ function shot(t, tvid) {
   else if (t < 35.2) { p = V(kf(t, [[33.7, [3.5, 1.8, -7]], [35.2, [3.5, 2.5, -2]]], lin)); l = yb.clone(); fov = 52; sh = 0.25; roll = -0.14; }
   else if (t < 36.2) { p = yh.clone().add(V3(0.1, 0.05, -1.15)); l = yh.clone(); fov = 32; sh = 0.015; }
   else if (t < 37.5) { const h = handW(G, 'L'); p = h.clone().add(V3(-0.1, 0.45, 1.0)); l = h.clone().add(V3(0, 0.4, 0)); fov = 30; sh = 0.008; }
-  else if (t < 38.2) { p = orbit(gb, 9, 3, 0, 1.2, t, 37.5, 38.2); l = gb.clone(); fov = 52; sh = 0.2; roll = 0.12; }
-  else if (t < 39.0) { const h = handW(Y, 'R').add(handW(Y, 'L')).multiplyScalar(0.5); p = h.clone().add(V3(0, 0.2, -1.0)); l = h.clone(); fov = 32; sh = 0.04; }
-  else if (t < 41.5) { p = V(kf(t, [[39, [-4, 2.4, 10]], [41.5, [-1, 2.0, 2]]], lin)); l = yb.clone().add(V3(0, 0.2, 0)); fov = 52; sh = 0.03; roll = 0.06; }
-  else if (t < 43.5) { p = orbit(yb, 7, 2.6, 3.4, 5.3, t, 41.5, 43.5); l = yb.clone(); fov = 50; sh = 0.02; }
-  else if (t < 45.5) { p = yh.clone().add(V3(0.5, -0.1, -2.3)); l = yh.clone().add(V3(0, -0.2, 0)); fov = 40; sh = 0.015; }
-  else { p = V(kf(t, [[45.5, [3, 2.2, 14]], [END, [0, 95, 48]]], smooth)); l = V(kf(t, [[45.5, [0, 1.5, -2]], [END, [0, 4, -6]]], lin)); fov = 55; sh = 0.01; }
+  else if (t < T.simple) { p = orbit(gb, 9, 3, 0, 1.2, t, 37.5, T.simple); l = gb.clone(); fov = 52; sh = 0.2; roll = 0.12; }
+  else if (t < T.amp) { p = orbit(yb, 6.2, 2.0, 0.9, 2.4, t, T.simple, T.amp); l = yb.clone(); fov = 50; sh = 0.04; }
+  else if (t < 39.9) { p = yb.clone().add(V3(2.0, 0.3, -2.4)); l = yb.clone(); fov = 40; sh = 0.04; roll = 0.06; }
+  else if (t < 41.5) { const m = yb.clone().lerp(gb, 0.5); p = orbit(m, 5.2, 1.7, 0.2, 2.6, t, 39.9, 41.5); l = m; fov = 48; sh = 0.03; }
+  else if (t < 43.0) { const m = yb.clone().lerp(gb, 0.5); p = m.clone().add(V3(4.2, -0.5, 0.6)); l = m.clone().add(V3(0, 0.3, 0)); fov = 44; sh = 0.04; roll = -0.1; }
+  else if (t < 44.3) { const m = yb.clone().lerp(gb, 0.5); p = m.clone().add(V3(-1.5, 0.4, -3.4)); l = m; fov = 40; sh = 0.04; roll = 0.08; }
+  else if (t < T.redHit) { const m = yb.clone().lerp(gb, 0.5); p = V3(1.4, 1.6, gb.z - 2.6); l = V3(0, 1.3, yb.z); fov = 44; sh = 0.08; roll = 0.05; }
+  else if (t < T.yDomSeal) { p = yb.clone().add(V(kf(t, [[T.redHit, [4, 0.9, -3]], [T.yDomSeal, [6.5, 1.8, -4.5]]], easeOut))); l = yb.clone(); fov = 50; sh = 0.1; roll = 0.1; }
+  else if (t < T.yDomShell) { const h = handW(Y, 'R').add(handW(Y, 'L')).multiplyScalar(0.5); p = h.clone().add(V3(0, 0.2, -1.1)); l = h.clone(); fov = 32; sh = 0.03; bd = [l, p]; }
+  else if (t < T.muku) { p = orbit(yb, 7.5, 2.0, 0.5, 1.6, t, T.yDomShell, T.muku); l = yb.clone(); fov = 55; sh = 0.1; roll = -0.08; }
+  else if (t < T.yDown) { p = yh.clone().add(V3(0.1, 0.0, -1.2)); l = yh.clone(); fov = 32; sh = 0.04; }
+  else if (t < T.reverse) { p = yp.clone().add(V3(2.6, 0.5, -2.6)); l = yb.clone().add(V3(0, -0.2, 0)); fov = 46; sh = 0.05; roll = 0.12; }
+  else if (t < T.yRise) { p = yb.clone().add(V3(1.8, 0.9, -2.8)); l = yb.clone(); fov = 42; sh = 0.03; }
+  else if (t < T.tele) { const m = yb.clone().lerp(gb, 0.5); p = V3(2.8, 1.8, gb.z - 3.2); l = V3(0, 1.4, m.z + 1); fov = 52; sh = 0.02; roll = -0.05; }
+  else if (t < T.reappear) { p = V3(16, 2.6, 2.4); l = V3(0, 1.4, 2.4); fov = 60; sh = 0.2; roll = 0.12; }
+  else if (t < T.purpleFire) { p = V3(6, 2.0, 7.6); l = V3(0, 1.9, 8.0); fov = 52; sh = 0.03; roll = 0.0; }
+  else if (t < 53.2) { p = V3(5.5, 2.2, gp.z - 3.5); l = V3(0, 1.8, gp.z + 1.5); fov = 50; sh = 0.2; roll = 0.1; }
+  else if (t < T.domEnd) { p = V3(10, 4, yp.z - 6); l = yp.clone(); fov = 48; sh = 0.04; }
+  else { const e = T.domEnd; p = V(kf(t, [[e, [4, 2, 1]], [END, [0, 95, 40]]], smooth)); l = V(kf(t, [[e, [0, 1.5, 7.8]], [END, [0, 4, 8]]], lin)); fov = 55; sh = 0.01; }
   const total = Math.max(sh, shakeAmp);
   camera.up.copy(up); if (up.z === 0 && roll) camera.up.applyAxisAngle(V3(0, 0, 1), roll);
   camera.position.copy(p).add(shake(tvid, total)); camera.lookAt(l); camera.fov = fov; camera.updateProjectionMatrix();
@@ -564,14 +676,14 @@ const post = new ShaderPass({
     float v=1.0-smoothstep(0.5,1.1,length((vUv-.5)*vec2(1.0,.6))); col*=mix(1.0,v,uVig); col*=1.0-uFade; gl_FragColor=vec4(col,1.0);} `
 });
 composer.addPass(post);
-const SHOCKS = [T.clash, T.land, T.cut, T.shatter, T.counter, T.cancel, T.domG, T.domY, T.domG2, ...T.bf];
+const SHOCKS = [T.clash, T.land, T.cut, T.shatter, T.counter, T.cancel, T.domG, T.domY, T.domG2, T.redHit, T.purpleFire, ...T.bf];
 function updatePost(t, tvid) {
   const u = post.uniforms;
-  u.uSat.value = kf(t, [[T.poison, 1], [T.poison + 0.3, 0.55], [T.heal + 1.6, 0.55], [T.heal + 2.6, 1], [T.domG2 + 0.4, 1], [T.domG2 + 1.0, 0.8], [45.5, 0.8], [46, 1]]);
+  u.uSat.value = kf(t, [[T.poison, 1], [T.poison + 0.3, 0.55], [T.heal + 1.6, 0.55], [T.heal + 2.6, 1], [T.domG2 + 0.4, 1], [T.domG2 + 1.0, 0.8], [T.domEnd, 0.8], [T.domEnd + 0.5, 1]]);
   u.uInv.value = invert; u.uFlash.value = flashW * (invert ? 0 : 1);
   u.uFade.value = kf(tvid, [[0, 1], [0.25, 0], [VID_DUR - 1.0, 0], [VID_DUR, 1]], lin);
-  u.uCA.value = 0.0007; u.uStr.value = 0;
-  for (const tc of SHOCKS) { const d = t - tc; if (d >= 0 && d < 0.8) { const pos = tc === T.clash ? V3(0, 34, 0) : tc === T.counter ? V3(0, 1.4, -5.9) : tc === T.domG2 ? V3(0, 1.5, -7.4) : tc >= 23 && tc < 27 ? bfPos : V3(0, 2, 0); const sp = pos.clone().project(camera); u.uC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uR.value = d * 1.4; u.uStr.value = 1.0 * (1 - d / 0.8); u.uCA.value = 0.0007 + 0.011 * (1 - d / 0.8); } }
+  u.uCA.value = 0.0007 + caBoost; u.uStr.value = 0;
+  for (const tc of SHOCKS) { const d = t - tc; if (d >= 0 && d < 0.8) { const pos = tc === T.clash ? V3(0, 34, 0) : tc === T.counter ? V3(0, 1.4, -5.9) : tc === T.domG2 ? V3(0, 1.5, -7.4) : tc === T.redHit ? V3(0, 1.4, 2.2) : tc === T.purpleFire ? V3(0, 1.5, 9.1) : tc >= 23 && tc < 27 ? bfPos : V3(0, 2, 0); const sp = pos.clone().project(camera); u.uC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uR.value = d * 1.4; u.uStr.value = 1.0 * (1 - d / 0.8); u.uCA.value = 0.0007 + 0.011 * (1 - d / 0.8); } }
   if (lensS > 0) { const sp = lensC.clone().project(camera); u.uLC.value.set(sp.x * .5 + .5, sp.y * .5 + .5); u.uLR.value = lensR; u.uLS.value = lensS; } else u.uLS.value = 0;
   bloom.strength = (bd ? 0.2 : 0.55) + Math.min(0.8, flashW * 0.8);
 }
